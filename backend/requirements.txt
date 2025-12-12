@@ -1,0 +1,10 @@
+# FastAPI and Server
+fastapi
+uvicorn
+
+# Database ORM and Adapter
+sqlmodel
+psycopg2-binary
+
+# Utilities
+python-dotenv
