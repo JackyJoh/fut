@@ -7,7 +7,7 @@ import os
 # Create the directory if it doesn't exist
 OUTPUT_DIR = 'data/raw'
 os.makedirs(OUTPUT_DIR, exist_ok=True)
-OUTPUT_FILE = os.path.join(OUTPUT_DIR, 'keeper_stats.csv')
+OUTPUT_FILE = os.path.join(OUTPUT_DIR, 'defensive_stats.csv')
 
 # Define the leagues to scrape (expanded beyond Big 5 for maximum volume)
 LEAGUE_CODES = ['Big 5 European Leagues Combined',
@@ -15,7 +15,7 @@ LEAGUE_CODES = ['Big 5 European Leagues Combined',
                 'NED-Eredivisie',
                 'TUR-Super Lig',
                 'USA-MLS',        
-                'BRA-Serie A']
+                'BEL-Jupiler Pro League',]
 
 # Define the range of seasons to scrape
 # Data from Fifa 15 to Fifa 25 (2014/15-2024/25 seasons)
@@ -34,7 +34,7 @@ print("--- Starting Bulk Data Retrieval from FBref. This may take a while. ---")
 
 try:
     df_performance = scraper.read_player_season_stats(
-       stat_type='keeper',  # Standard stats (Goals, Assists, etc.)
+       stat_type='defense'
     )
     # Flatten possible MultiIndex columns into single strings
     df_performance.columns = [
@@ -56,40 +56,16 @@ print("--- Data Retrieval Complete. ---")
 
 # Verification and Saving
 if not df_performance.empty:
-    # 4a. Basic Verification Check
+    # Basic Verification Check
     print(f"\nTotal Player-Season Rows Collected: {len(df_performance):,}")
     
-    # Debug: Print available columns to understand structure
+    # Print available columns to understand structure
     print(f"\nAvailable columns: {df_performance.columns.tolist()[:10]}...")
     
-    # Find the player column (it might be named differently after flattening)
+    # Find the player column
     player_col = next((col for col in df_performance.columns if 'player' in col.lower()), None)
     if player_col:
         print(f"Number of Unique Players: {df_performance[player_col].nunique():,}")
-        df_performance.to_csv(OUTPUT_FILE, index=False)
-
-    # Critical Columns Check for ML Feasibility
-    # Note: After flattening, column names might have prefixes
-    critical_cols = {
-        'min': None,
-        'gls': None,
-        'ast': None,
-        'xg': None,
-        'xa': None
-    }
-    
-    for col in df_performance.columns:
-        col_lower = col.lower()
-        for key in critical_cols:
-            if key in col_lower and critical_cols[key] is None:
-                critical_cols[key] = col
-    
-    missing_cols = [key for key, val in critical_cols.items() if val is None]
-    
-    if not missing_cols:
-        print("Success: All critical ML columns (Minutes, Goals, xG, etc.) are present.")
-    else:
-        print(f"Warning: Could not find columns for: {missing_cols}")
 
     # 4b. Save the Raw Data
     df_performance.to_csv(OUTPUT_FILE, index=False)
