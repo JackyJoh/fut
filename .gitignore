@@ -10,5 +10,5 @@ frontend/.next/
 frontend/out/
 
 # ML Artifacts and Data
-data/raw/             # Raw data is often too large
-model/saved_models/   # Saved XGBoost model files (.pkl or .joblib)
+data/raw/
+model/saved_models/
