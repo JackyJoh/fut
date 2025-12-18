@@ -11,4 +11,5 @@ frontend/out/
 
 # ML Artifacts and Data
 data/raw/
+data/clean/
 model/saved_models/
