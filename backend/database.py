@@ -1,7 +1,7 @@
 from typing import Generator
 from sqlmodel import create_engine, Session, SQLModel
 from sqlalchemy import text
-from .config import settings
+from config import settings
 
 engine = create_engine(settings.DATABASE_URL, echo=True)
 
