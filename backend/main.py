@@ -1,11 +1,13 @@
 from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from sqlmodel import Session
+from sqlmodel import Session, select
 from typing import List
+from predictor import predictStats
+from model_utils import get_players_by_name, get_player_by_id, player_to_features, get_players_by_name
 
-from .database import create_db_and_tables, get_session
-from . import models
-from .models import Player, PlayerRead, PlayerBase
+from database import create_db_and_tables, get_session
+from models import Player, PlayerRead
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -21,37 +23,44 @@ app = FastAPI(
     lifespan=lifespan  # attach lifespan so tables get created at startup
 )
 
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # Frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the FUT Prediction API!"}
 
-@app.post("/players/", response_model=PlayerRead)
-def create_player(*, session: Session = Depends(get_session), player: PlayerBase):
+@app.get("/searchPlayers", response_model=List[PlayerRead])
+def searchPlayers(name: str, session: Session = Depends(get_session)):
     """
-    Creates a new Player record in the database.
-    
-    * session: The database session dependency (automatically manages connection).
-    * player: The incoming data, validated against the PlayerBase model.
+    Search for players by name (partial match) and return a list of PlayerRead objects.
     """
-    # 1. Create a full Player object using the validated data
-    db_player = Player.model_validate(player)
-
-    # 2. Add to session and commit to the database (RDS)
-    session.add(db_player)
-    session.commit()
-    session.refresh(db_player) # Get the DB-generated ID back
-
-    return db_player
-
-@app.get("/players/", response_model=List[PlayerRead])
-def read_players(
-    *, 
-    session: Session = Depends(get_session), 
-    offset: int = 0, 
-    limit: int = 10
-):
-    """Reads a list of players from the database."""
-    
-    players = session.query(Player).offset(offset).limit(limit).all()
-    
+    players = get_players_by_name(session, name)
     return players
+
+@app.get("/predictPlayer/{playerID}")
+def predictPlayer(playerID: int, session: Session = Depends(get_session)):
+    """
+    Predict stats for a player given their player ID.
+    """
+    player = get_player_by_id(session, playerID)
+    if not player:
+        return {"error": "Player not found"}
+    # Convert to model features
+    features = player_to_features(player)
+    # Make predictions
+    predicted_stats = predictStats(features)
+    return {
+        "player": player,
+        "predicted_stats": predicted_stats
+    }
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}

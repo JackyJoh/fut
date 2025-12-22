@@ -98,7 +98,6 @@ def player_to_features(player: Player) -> pd.DataFrame:
     # Create DataFrame with features in correct order
     df = pd.DataFrame([features])
     df = df[MODEL_FEATURES]  # Ensure correct column order
-    
     return df
 
 def get_players_by_name(session: Session, name: str) -> List[Player]:
