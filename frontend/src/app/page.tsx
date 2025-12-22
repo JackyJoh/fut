@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import GlareHover from './GlareHover';
+import LiquidChrome from './LiquidChrome';
+import CountUp from './CountUp';
 
 interface PlayerSuggestion {
   idPlayer: string;
@@ -9,6 +11,69 @@ interface PlayerSuggestion {
   strTeam: string;
   strNationality: string;
   fullData?: any; // Store the full player object from backend
+}
+
+// Helper function to convert nationality name to ISO 3166-1 alpha-2 country code (lowercase, for flagcdn)
+function getNationalityCode(nationality: string) {
+  const mapping: Record<string, string> = {
+    "france": "fr",
+    "england": "gb",
+    "germany": "de",
+    "spain": "es",
+    "italy": "it",
+    "portugal": "pt",
+    "netherlands": "nl",
+    "brazil": "br",
+    "argentina": "ar",
+    "belgium": "be",
+    "croatia": "hr",
+    "uruguay": "uy",
+    "poland": "pl",
+    "denmark": "dk",
+    "norway": "no",
+    "sweden": "se",
+    "switzerland": "ch",
+    "austria": "at",
+    "turkey": "tr",
+    "morocco": "ma",
+    "united states": "us",
+    "canada": "ca",
+    "mexico": "mx",
+    "japan": "jp",
+    "south korea": "kr",
+    "serbia": "rs",
+    "slovenia": "si",
+    "czech republic": "cz",
+    "slovakia": "sk",
+    "hungary": "hu",
+    "russia": "ru",
+    "ukraine": "ua",
+    "ghana": "gh",
+    "nigeria": "ng",
+    "cameroon": "cm",
+    "senegal": "sn",
+    "ivory coast": "ci",
+    "egypt": "eg",
+    "australia": "au",
+    "chile": "cl",
+    "colombia": "co",
+    "ecuador": "ec",
+    "paraguay": "py",
+    "peru": "pe",
+    "saudi arabia": "sa",
+    "iran": "ir",
+    "algeria": "dz",
+    "tunisia": "tn",
+    "greece": "gr",
+    "romania": "ro",
+    "bosnia and herzegovina": "ba",
+    "wales": "gb-wls",
+    "scotland": "gb-sct",
+    "northern ireland": "gb-nir",
+    // Add more mappings as needed
+  };
+  const normalizedNationality = nationality.trim().toLowerCase();
+  return mapping[normalizedNationality] || null;
 }
 
 export default function Home() {
@@ -28,7 +93,7 @@ export default function Home() {
   const [club, setClub] = useState<string | null>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [predictedStatsLib, setPredictedStatsLib] = useState<any>(null);
-
+  const [nationalityText, setNationalityText] = useState<string | null>(null);
   const fetchSuggestions = async (query: string) => {
     if (!query.trim() || query.length < 2) {
       setSuggestions([]);
@@ -80,29 +145,43 @@ export default function Home() {
       const data = await response.json();
       
       if (data.player && data.player.length > 0) {
-        const player = data.player[0];
-        const image = player.strThumb || player.strCutout;
-        setPlayerImage(image || "");
-        setNationality(player.strNationality || null);
+        // Filter for soccer players only
+        const soccerPlayers = data.player.filter((p: any) => p.strSport?.toLowerCase() === 'soccer');
         
-        
-        // Fetch team badge using team name
-        if (player.strTeam) {
-          try {
-            const teamResponse = await fetch(
-              `https://www.thesportsdb.com/api/v1/json/123/searchteams.php?t=${encodeURIComponent(player.strTeam)}`
-            );
-            const teamData = await teamResponse.json();
-            if (teamData.teams && teamData.teams.length > 0) {
-              setTeamBadge(teamData.teams[0].strBadge || null);
-            } else {
+        if (soccerPlayers.length > 0) {
+          const player = soccerPlayers[0];
+          const image = player.strThumb || player.strCutout;
+          setPlayerImage(image || "");
+          setNationality(player.strNationality || null);
+          
+          
+          // Fetch team badge using team name
+          if (player.strTeam) {
+            try {
+              const teamResponse = await fetch(
+                `https://www.thesportsdb.com/api/v1/json/123/searchteams.php?t=${encodeURIComponent(player.strTeam)}`
+              );
+              const teamData = await teamResponse.json();
+              if (teamData.teams && teamData.teams.length > 0) {
+                // Filter for soccer teams only
+                const soccerTeams = teamData.teams.filter((t: any) => t.strSport?.toLowerCase() === 'soccer');
+                if (soccerTeams.length > 0) {
+                  setTeamBadge(soccerTeams[0].strBadge || null);
+                } else {
+                  setTeamBadge(null);
+                }
+              } else {
+                setTeamBadge(null);
+              }
+            } catch (error) {
+              console.error("Error fetching team badge:", error);
               setTeamBadge(null);
             }
-          } catch (error) {
-            console.error("Error fetching team badge:", error);
+          } else {
             setTeamBadge(null);
           }
         } else {
+          setPlayerImage("");
           setTeamBadge(null);
         }
       } else {
@@ -151,7 +230,7 @@ export default function Home() {
       setCurrentOverall(data.overall || null);
       setPosition(data.player_positions || null);
       setClub(data.club_name || null);
-      setNationality(data.nationality_name || null);
+      setNationalityText(data.nationality_name || null);
       
       // Fetch image and team badge from TheSportsDB using database club name
       fetchPlayerImage(player.strPlayer, data.club_name);
@@ -172,6 +251,9 @@ export default function Home() {
     const playerID = selectedPlayerId;
     if (!playerID) return;
 
+    //setall data to null/loading states
+    setPredictedStatsLib(null);
+
     try {
       const response = await fetch(
         `http://localhost:8000/predictPlayer/${playerID}`
@@ -185,47 +267,19 @@ export default function Home() {
   }
 
   return (
-    <div className="relative h-screen bg-[#0a0f0a] overflow-hidden flex flex-col font-[family-name:var(--font-michroma)]">
-      {/* Background Effects */}
-      <div className="absolute inset-0 overflow-hidden">
-        {/* Gradient orbs */}
-        <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-emerald-500/10 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-30%] left-[-10%] w-[500px] h-[500px] bg-emerald-600/8 rounded-full blur-[100px]" />
-        <div className="absolute top-[40%] left-[30%] w-[300px] h-[300px] bg-emerald-400/5 rounded-full blur-[80px]" />
-        
-        {/* Grid lines */}
-        <div 
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage: `
-              linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
-            `,
-            backgroundSize: '60px 60px'
-          }}
+    <div className="relative h-screen overflow-hidden flex flex-col font-[family-name:var(--font-michroma)]">
+      {/* LiquidChrome Background */}
+      <div className="absolute inset-0">
+        <LiquidChrome
+          baseColor={[0.05, 0.12, 0.05]}
+          speed={0.2}
+          amplitude={0.6}
+          interactive={false}
         />
-        
-        {/* Diagonal lines */}
-        <div 
-          className="absolute inset-0 opacity-[0.02]"
-          style={{
-            backgroundImage: `repeating-linear-gradient(
-              45deg,
-              transparent,
-              transparent 100px,
-              rgba(255,255,255,0.05) 100px,
-              rgba(255,255,255,0.05) 101px
-            )`
-          }}
-        />
-
-        {/* Star/sparkle decorations */}
-        <div className="absolute bottom-20 right-20 text-emerald-500/20 text-6xl">✦</div>
-        <div className="absolute top-40 left-[20%] text-emerald-500/10 text-4xl">✦</div>
       </div>
 
       {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-6 py-3 border-b border-white/5 shrink-0">
+      <header className="relative z-10 flex items-center justify-between px-6 py-3 border-b border-white/25 shrink-0 bg-[#0a0f0a]/90">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg flex items-center justify-center">
             <img src= "futpredict-removebg2.png" className="w-full h-full object-cover" alt="Fut Predict Logo" />
@@ -235,7 +289,7 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main className="relative z-10 px-6 py-4 w-[90vw] mx-auto flex-1 flex flex-col min-h-0">
+      <main className="relative z-10 px-6 py-4 w-[90vw] mx-auto flex-1 flex flex-col min-h-0 opacity-100">
         {/* Title Section */}
         <div className="mb-4 shrink-0">
           <h1 className="text-2xl font-bold text-white mb-1">FIFA Rating Predictor</h1>
@@ -328,18 +382,28 @@ export default function Home() {
                     </div>
                     {/* Nationality */}
                     <div className="w-24 h-24 rounded-lg p-2 flex items-center justify-center aspect-square overflow-hidden">
-                      {nationality ? (
-                        <img 
-                          src={`https://flagcdn.com/w80/${nationality.toLowerCase().slice(0, 2)}.png`}
-                          alt={nationality}
-                          className="w-full h-full object-contain rounded"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                            e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                          }}
-                        />
-                      ) : null}
-                      <span className={`text-xs font-semibold text-gray-400 ${nationality ? 'hidden' : ''}`}>NAT</span>
+                      {nationalityText ? (
+                        (() => {
+                          const flagCode = getNationalityCode(nationalityText);
+                          const flagUrl = `https://flagcdn.com/w80/${flagCode}.png`;
+                          return (
+                            <>
+                              <img 
+                                src={flagUrl}
+                                alt={nationalityText}
+                                className="w-full h-full object-contain rounded"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                }}
+                              />
+                              <span className="text-xs font-semibold text-gray-400 hidden">NAT</span>
+                            </>
+                          );
+                        })()
+                      ) : (
+                        <span className="text-xs font-semibold text-gray-400">NAT</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -368,7 +432,7 @@ export default function Home() {
 
             {/* Predicted Performance */}
             <div className="flex flex-col shrink-0">
-              <h3 className="text-white font-semibold text-sm mb-2 shrink-0">Predicted Performance</h3>
+              <h3 className="text-white font-semibold text-sm mb-2 shrink-0">Predicted Performance  (League)</h3>
               <div className="grid grid-cols-4 gap-3">
                 {[
                   { label: "Goals", value: predictedStatsLib?.predictedGoals ? Math.ceil(predictedStatsLib.predictedGoals) : "--" },
@@ -393,7 +457,13 @@ export default function Home() {
                   >
                     <div className="p-3 flex flex-col items-center justify-center text-center w-full h-full">
                       <span className="text-gray-400 text-xs mb-2">{stat.label}</span>
-                      <span className="text-white font-bold text-2xl">{stat.value}</span>
+                      <span className="text-white font-bold text-2xl">
+                        {typeof stat.value === 'number' ? (
+                          <CountUp to={stat.value} duration={2.0} />
+                        ) : (
+                          stat.value
+                        )}
+                      </span>
                     </div>
                   </GlareHover>
                 ))}
@@ -407,10 +477,20 @@ export default function Home() {
             <div className="bg-[#141914] border border-white/10 rounded-xl p-4 shrink-0">
               <h3 className="text-gray-400 text-xs mb-2">Predicted Rating:</h3>
               <div className="flex items-baseline gap-3">
-                <span className="text-5xl font-bold text-white">{predictedStatsLib?.predictOverall.toFixed(0) ?? "--"}</span>
-                <div className="flex items-center gap-1 text-emerald-400">
-                  <span className="text-2xl">↑</span>
-                  <span className="text-xl font-semibold">{"+" + (predictedStatsLib?.predictRatingChange ? Math.ceil(predictedStatsLib.predictRatingChange) : "--")}</span>
+                <span className="text-5xl font-bold bg-gradient-to-r from-cyan-400 via-emerald-400 to-blue-500 bg-clip-text text-transparent">
+                  {predictedStatsLib?.predictOverall ? (
+                    <CountUp to={Number(predictedStatsLib.predictOverall.toFixed(0))} duration={1.0} />
+                  ) : (
+                    "--"
+                  )}
+                </span>
+                <div className={`flex items-center gap-1 ${predictedStatsLib?.predictRatingChange && predictedStatsLib.predictRatingChange < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                  <span className="text-2xl">{predictedStatsLib?.predictRatingChange && predictedStatsLib.predictRatingChange < 0 ? '↓' : '↑'}</span>
+                  <span className="text-xl font-semibold">
+                    {predictedStatsLib?.predictRatingChange ? 
+                      (predictedStatsLib.predictRatingChange >= 0 ? '+' : '') + (predictedStatsLib.predictRatingChange) 
+                      : "--"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -438,12 +518,12 @@ export default function Home() {
                     <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100">
                       <polygon
                         points={`
-                          50,${50 - (predictedStatsLib.predictPace || 0) * 0.4}
-                          ${50 + (predictedStatsLib.predictShooting || 0) * 0.35},${50 - (predictedStatsLib.predictShooting || 0) * 0.2}
-                          ${50 + (predictedStatsLib.predictPassing || 0) * 0.35},${50 + (predictedStatsLib.predictPassing || 0) * 0.2}
-                          50,${50 + (predictedStatsLib.predictDribbling || 0) * 0.4}
-                          ${50 - (predictedStatsLib.predictPhysic || 0) * 0.35},${50 + (predictedStatsLib.predictPhysic || 0) * 0.2}
-                          ${50 - (predictedStatsLib.predictPhysic || 0) * 0.35},${50 - (predictedStatsLib.predictPhysic || 0) * 0.2}
+                          50,${50 - (predictedStatsLib.predictPace || 0) * 0.45}
+                          ${50 + (predictedStatsLib.predictShooting || 0) * 0.39},${50 - (predictedStatsLib.predictShooting || 0) * 0.35}
+                          ${50 + (predictedStatsLib.predictPassing || 0) * 0.39},${50 + (predictedStatsLib.predictPassing || 0) * 0.35}
+                          50,${50 + (predictedStatsLib.predictDribbling || 0) * 0.45}
+                          ${50 - (predictedStatsLib.predictDefending || 0) * 0.39},${50 + (predictedStatsLib.predictDefending || 0) * 0.35}
+                          ${50 - (predictedStatsLib.predictPhysic || 0) * 0.39},${50 - (predictedStatsLib.predictPhysic || 0) * 0.3}
                         `.trim()}
                         fill="rgba(16, 185, 129, 0.2)"
                         stroke="rgba(16, 185, 129, 0.8)"

@@ -132,11 +132,14 @@ def predictStats(dfStats):
     results['predictedTackles'] = float(results.pop('predictTkl90')) * (playing_time_min / 90)
     results['predictedKeyPasses'] = float(results.pop('predictKey90')) * (playing_time_min / 90)
 
-    current_overall = float(dfStats['overall'].iloc[0])
+    current_overall = Math.ceil(float(dfStats['overall'].iloc[0]))
     rating_change = results['predictOverall'] - current_overall
     if 0 < rating_change < 1:
         results['predictOverall'] = float(current_overall + 1)
         results['predictRatingChange'] = 1.0
+    elif -1 < rating_change < 0:
+        results['predictOverall'] = float(current_overall - 1)
+        results['predictRatingChange'] = -1.0
     else:
-        results['predictRatingChange'] = float(rating_change)
+        results['predictRatingChange'] = round((float(rating_change)),0)
     return results

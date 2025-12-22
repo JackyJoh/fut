@@ -20,7 +20,10 @@ const michroma = Michroma({
 
 export const metadata: Metadata = {
   title: "FUT PREDICT",
-  description: "FIFA Player Performance Predictor"
+  description: "FIFA Player Performance Predictor",
+  icons: {
+    icon: "/futPredict.png",
+  },
 };
 
 export default function RootLayout({
