@@ -23,9 +23,13 @@
 body {
   background: transparent;
   color: var(--foreground);
-  font-family: var(--font-michroma), "Michroma", sans-serif;
+  font-family: "Michroma", sans-serif !important;
 }
 
 html {
   background: transparent;
+}
+
+* {
+  font-family: "Michroma", sans-serif !important;
 }

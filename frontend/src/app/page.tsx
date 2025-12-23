@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import GlareHover from './GlareHover';
 import LiquidChrome from './LiquidChrome';
 import CountUp from './CountUp';
+import Splash from './splash';
 
 interface PlayerSuggestion {
   idPlayer: string;
@@ -77,11 +78,11 @@ function getNationalityCode(nationality: string) {
 }
 
 export default function Home() {
+  const [showSplash, setShowSplash] = useState(true);
   const [playerSearch, setPlayerSearch] = useState("");
   const [selectedSeason, setSelectedSeason] = useState("2024-25");
   const [playerImage, setPlayerImage] = useState("");
   const [isLoadingImage, setIsLoadingImage] = useState(false);
-  const [nationality, setNationality] = useState<string | null>(null);
   const [teamBadge, setTeamBadge] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<PlayerSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -94,6 +95,21 @@ export default function Home() {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [predictedStatsLib, setPredictedStatsLib] = useState<any>(null);
   const [nationalityText, setNationalityText] = useState<string | null>(null);
+  
+  // Memoize the LiquidChrome background to prevent re-renders
+  const liquidChromeBackground = useMemo(() => (
+    <LiquidChrome
+      baseColor={[0.05, 0.12, 0.05]}
+      speed={0.2}
+      amplitude={0.6}
+      interactive={false}
+    />
+  ), []);
+  
+  if (showSplash) {
+    return <Splash onComplete={() => setShowSplash(false)} />;
+  }
+  
   const fetchSuggestions = async (query: string) => {
     if (!query.trim() || query.length < 2) {
       setSuggestions([]);
@@ -131,13 +147,18 @@ export default function Home() {
     }
   };
 
-  const fetchPlayerImage = async (playerName: string, clubName?: string) => {
+  const fetchPlayerImage = async (playerName: string, clubName?: string, nationality?: string) => {
     if (!playerName.trim()) {
       setPlayerImage("");
       return;
     }
 
     setIsLoadingImage(true);
+    
+    // Store fetched data temporarily
+    let tempPlayerImage = "";
+    let tempTeamBadge: string | null = null;
+    
     try {
       const response = await fetch(
         `https://www.thesportsdb.com/api/v1/json/123/searchplayers.php?p=${encodeURIComponent(playerName)}`
@@ -151,9 +172,7 @@ export default function Home() {
         if (soccerPlayers.length > 0) {
           const player = soccerPlayers[0];
           const image = player.strThumb || player.strCutout;
-          setPlayerImage(image || "");
-          setNationality(player.strNationality || null);
-          
+          tempPlayerImage = image || "";
           
           // Fetch team badge using team name
           if (player.strTeam) {
@@ -166,36 +185,26 @@ export default function Home() {
                 // Filter for soccer teams only
                 const soccerTeams = teamData.teams.filter((t: any) => t.strSport?.toLowerCase() === 'soccer');
                 if (soccerTeams.length > 0) {
-                  setTeamBadge(soccerTeams[0].strBadge || null);
-                } else {
-                  setTeamBadge(null);
+                  tempTeamBadge = soccerTeams[0].strBadge || null;
                 }
-              } else {
-                setTeamBadge(null);
               }
             } catch (error) {
               console.error("Error fetching team badge:", error);
-              setTeamBadge(null);
             }
-          } else {
-            setTeamBadge(null);
           }
-        } else {
-          setPlayerImage("");
-          setTeamBadge(null);
         }
-      } else {
-        setPlayerImage("");
-        setTeamBadge(null);
       }
     } catch (error) {
       console.error("Error fetching player image:", error);
-      setPlayerImage("");
-      setNationality(null);
-      setTeamBadge(null);
-    } finally {
-      setIsLoadingImage(false);
     }
+    
+    // Set all data at once after everything is loaded
+    setPlayerImage(tempPlayerImage);
+    setTeamBadge(tempTeamBadge);
+    if (nationality) {
+      setNationalityText(nationality);
+    }
+    setIsLoadingImage(false);
   };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -217,23 +226,44 @@ export default function Home() {
     }, 300);
   };
 
-  const handleSelectPlayer = (player: PlayerSuggestion) => {
+  const handleSelectPlayer = async (player: PlayerSuggestion) => {
     setPlayerSearch(player.strPlayer);
     setShowSuggestions(false);
     setSuggestions([]);
     
+    // Clear all images and data first
+    setPlayerImage("");
+    setTeamBadge(null);
+    setNationalityText(null);
+    setPredictedStatsLib(null);
+    
     // Set player data from backend
     if (player.fullData) {
       const data = player.fullData;
-      setSelectedPlayerId(data.id?.toString() || data.playerID?.toString() || null);
+      const playerId = data.id?.toString() || data.playerID?.toString() || null;
+      setSelectedPlayerId(playerId);
       setAge(data.age_fifa || null);
       setCurrentOverall(data.overall || null);
       setPosition(data.player_positions || null);
       setClub(data.club_name || null);
-      setNationalityText(data.nationality_name || null);
       
-      // Fetch image and team badge from TheSportsDB using database club name
-      fetchPlayerImage(player.strPlayer, data.club_name);
+      // Fetch images independently (don't wait for them)
+      fetchPlayerImage(player.strPlayer, data.club_name, data.nationality_name || null);
+      
+      // Automatically predict rating (runs in parallel with image loading)
+      if (playerId) {
+        setPredictedStatsLib(null);
+        try {
+          const response = await fetch(
+            `http://localhost:8000/predictPlayer/${playerId}`
+          );
+          const predData = await response.json();
+          console.log("Predicted Data:", predData);
+          setPredictedStatsLib(predData.predicted_stats);
+        } catch (error) {
+          console.error("Error fetching predicted data:", error);
+        }
+      }
     } else {
       // Fallback if no fullData
       fetchPlayerImage(player.strPlayer);
@@ -270,12 +300,7 @@ export default function Home() {
     <div className="relative h-screen overflow-hidden flex flex-col font-[family-name:var(--font-michroma)]">
       {/* LiquidChrome Background */}
       <div className="absolute inset-0">
-        <LiquidChrome
-          baseColor={[0.05, 0.12, 0.05]}
-          speed={0.2}
-          amplitude={0.6}
-          interactive={false}
-        />
+        {liquidChromeBackground}
       </div>
 
       {/* Header */}
@@ -312,12 +337,12 @@ export default function Home() {
                   onFocus={() => {
                     if (suggestions.length > 0) setShowSuggestions(true);
                   }}
-                  className="w-full bg-[#1a1f1a] border border-white/10 rounded-lg py-2 pl-3 pr-3 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-emerald-500/50"
+                  className="w-full backdrop-blur-md bg-black/20 border border-white/10 rounded-lg py-2 pl-3 pr-3 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-emerald-500/50"
                 />
                 
                 {/* Suggestions Dropdown */}
                 {showSuggestions && suggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-[#1a1f1a] border border-white/10 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                  <div className="absolute top-full left-0 right-0 mt-1 backdrop-blur-md bg-black/20 border border-white/10 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
                     {suggestions.map((player) => (
                       <div
                         key={player.idPlayer}
@@ -332,7 +357,7 @@ export default function Home() {
                 )}
                 
                 {isLoadingSuggestions && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-[#1a1f1a] border border-white/10 rounded-lg shadow-lg z-50 px-3 py-2">
+                  <div className="absolute top-full left-0 right-0 mt-1 backdrop-blur-md bg-black/20 border border-white/10 rounded-lg shadow-lg z-50 px-3 py-2">
                     <div className="text-gray-400 text-sm">Searching...</div>
                   </div>
                 )}
@@ -340,7 +365,7 @@ export default function Home() {
               <select
                 value={selectedSeason}
                 onChange={(e) => setSelectedSeason(e.target.value)}
-                className="bg-[#1a1f1a] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500/50 min-w-[120px]"
+                className="backdrop-blur-md bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500/50 min-w-[120px]"
               >
                 <option value="2025-26">Season 25-26</option>
                 <option value="2026-27">Season 26-27</option>
@@ -349,7 +374,7 @@ export default function Home() {
             </div>
 
             {/* Current Stats Card */}
-            <div className="bg-[#141914] border border-white/10 rounded-xl p-4 flex-1">
+            <div className="backdrop-blur-md bg-black/20 border border-white/10 rounded-xl p-4 flex-1">
               <h3 className="text-gray-400 text-xs mb-3">Current Stats</h3>
               
               <div className="flex gap-4">
@@ -381,26 +406,18 @@ export default function Home() {
                       )}
                     </div>
                     {/* Nationality */}
-                    <div className="w-24 h-24 rounded-lg p-2 flex items-center justify-center aspect-square overflow-hidden">
-                      {nationalityText ? (
-                        (() => {
-                          const flagCode = getNationalityCode(nationalityText);
-                          const flagUrl = `https://flagcdn.com/w80/${flagCode}.png`;
-                          return (
-                            <>
-                              <img 
-                                src={flagUrl}
-                                alt={nationalityText}
-                                className="w-full h-full object-contain rounded"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                }}
-                              />
-                              <span className="text-xs font-semibold text-gray-400 hidden">NAT</span>
-                            </>
-                          );
-                        })()
+                    <div className="w-24 h-24 rounded-lg p-2 flex items-center justify-center aspect-square">
+                      {nationalityText && getNationalityCode(nationalityText) ? (
+                        <img 
+                          src={`https://flagcdn.com/${getNationalityCode(nationalityText)}.svg`}
+                          alt={nationalityText}
+                          className="w-full h-full object-contain rounded"
+                          onError={(e) => {
+                            console.error("Flag failed to load");
+                            e.currentTarget.outerHTML = '<span class="text-xs font-semibold text-gray-400">NAT</span>';
+                          }}
+                          onLoad={() => console.log("Flag loaded successfully")}
+                        />
                       ) : (
                         <span className="text-xs font-semibold text-gray-400">NAT</span>
                       )}
@@ -444,7 +461,7 @@ export default function Home() {
                     key={idx}
                     width="100%"
                     height="100%"
-                    background="#1a1f1a"
+                    background="rgba(0,0,0,0.2)"
                     borderRadius="0.5rem"
                     borderColor="rgba(255,255,255,0.1)"
                     glareColor="#10b981"
@@ -455,7 +472,7 @@ export default function Home() {
                     playOnce={false}
                     className="aspect-square"
                   >
-                    <div className="p-3 flex flex-col items-center justify-center text-center w-full h-full">
+                    <div className="p-3 flex flex-col items-center justify-center text-center w-full h-full backdrop-blur-md">
                       <span className="text-gray-400 text-xs mb-2">{stat.label}</span>
                       <span className="text-white font-bold text-2xl">
                         {typeof stat.value === 'number' ? (
@@ -474,7 +491,7 @@ export default function Home() {
           {/* Right Column */}
           <div className="flex flex-col gap-3 min-h-0">
             {/* Predicted Rating Card */}
-            <div className="bg-[#141914] border border-white/10 rounded-xl p-4 shrink-0">
+            <div className="backdrop-blur-md bg-black/20 border border-white/10 rounded-xl p-4 shrink-0">
               <h3 className="text-gray-400 text-xs mb-2">Predicted Rating:</h3>
               <div className="flex items-baseline gap-3">
                 <span className="text-5xl font-bold bg-gradient-to-r from-cyan-400 via-emerald-400 to-blue-500 bg-clip-text text-transparent">
@@ -496,7 +513,7 @@ export default function Home() {
             </div>
 
             {/* Predicted Next Season Stats */}
-            <div className="bg-[#141914] border border-white/10 rounded-xl p-4 flex-1 flex flex-col min-h-0">
+            <div className="backdrop-blur-md bg-black/20 border border-white/10 rounded-xl p-4 flex-1 flex flex-col min-h-0">
               <h3 className="text-white font-semibold text-sm mb-3 shrink-0">Predicted Next Season Stats</h3>
               
               {/* Radar Chart */}
