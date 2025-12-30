@@ -1,3 +1,18 @@
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 1s ease-out;
+}
 @import "tailwindcss";
 
 :root {
@@ -32,4 +47,23 @@ html {
 
 * {
   font-family: "Michroma", sans-serif !important;
+}
+
+/* Additional responsive utilities for edge cases */
+@media (max-width: 380px) {
+  /* Extra small mobile devices */
+  .text-responsive-xs {
+    font-size: 0.7rem;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* Tablet mode - enable scrolling */
+  body {
+    overflow: auto;
+  }
+
+  main {
+    overflow-y: auto !important;
+  }
 }

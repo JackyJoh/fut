@@ -15,7 +15,7 @@ async def lifespan(app: FastAPI):
     create_db_and_tables()
     print("Database ready.")
     yield
-# ...existing code...
+
 app = FastAPI(
     title="FUT Prediction API",
     version="0.1.0",
@@ -55,7 +55,7 @@ def predictPlayer(playerID: int, session: Session = Depends(get_session)):
     # Convert to model features
     features = player_to_features(player)
     # Make predictions
-    predicted_stats = predictStats(features)
+    predicted_stats = predictStats(features, player)
     return {
         "player": player,
         "predicted_stats": predicted_stats

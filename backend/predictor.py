@@ -87,7 +87,7 @@ def predictKey90(df_features) -> float:
 
 
 # Feature 1 | Predict Current Season Stats
-def predictStats(dfStats):
+def predictStats(dfStats, player=None):
     """
     Predict key stats for a player (dataframe from front-end) using the face stats models.
     Returns a json/dict of predicted stats.
@@ -132,6 +132,20 @@ def predictStats(dfStats):
     results['predictedTackles'] = float(results.pop('predictTkl90')) * (playing_time_min / 90)
     results['predictedKeyPasses'] = float(results.pop('predictKey90')) * (playing_time_min / 90)
 
+   
+    # NEED TO CLEAN THIS CODE BELOW
+
+    # Rating Momentum Fix (if momentum is very high, give revert negatives)
+    momentum = dfStats['rating_momentum'].iloc[0]
+    if momentum > 10:
+        if results['predictRatingChange'] < 0:
+            results['predictRatingChange'] = round((momentum) * .05)
+        # Fix predicted overall based off new rating change
+        results['predictOverall'] = float(Math.ceil(float(dfStats['overall'].iloc[0]) + results['predictRatingChange']))
+        results['predictedPotential'] = dfStats['potential'].iloc[0]
+        return results
+
+
     current_overall = Math.ceil(float(dfStats['overall'].iloc[0]))
     rating_change = results['predictOverall'] - current_overall
     if 0 < rating_change < 1:
@@ -142,4 +156,13 @@ def predictStats(dfStats):
         results['predictRatingChange'] = -1.0
     else:
         results['predictRatingChange'] = round((float(rating_change)),0)
+    
+     # value fix | high value players tend to drop crazy value w little rating change and not old
+    player_value_eur = getattr(player, 'value_eur', None) if player else None
+    if dfStats['age_fifa'].iloc[0] < 30 and player_value_eur > 80000000:
+        if results['predictRatingChange'] is not None and results['predictRatingChange'] < 1:
+            results['predictValue'] = player_value_eur * (0.95 - (results['predictRatingChange'] * 0.02))
+        elif results['predictRatingChange'] is not None and results['predictRatingChange'] >= 1:
+            results['predictValue'] = player_value_eur * 1.05
+    
     return results

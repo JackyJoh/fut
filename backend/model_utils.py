@@ -28,6 +28,7 @@ MODEL_FEATURES = [
 
 # Mapping from database column names to model feature names
 DB_TO_MODEL_MAPPING = {
+    'value_eur': 'value_eur',
     'age_fifa': 'age_fifa',
     'overall': 'overall',
     'potential': 'potential',
