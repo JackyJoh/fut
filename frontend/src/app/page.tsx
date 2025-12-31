@@ -1,14 +1,41 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
+import GlareHover from './GlareHover';
+import LiquidChrome from './LiquidChrome';
+import CountUp from './CountUp';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import Splash from './splash';
+
 // List of seasons for tabs
 const SEASONS = [
   "25/26", "26/27", "27/28", "28/29", "29/30", "30/31", "31/32", "32/33", "33/34"
 ];
-import GlareHover from './GlareHover';
-import LiquidChrome from './LiquidChrome';
-import CountUp from './CountUp';
-import Splash from './splash';
+
+// Temp chart data
+const marketValueData = [
+  { season: '20/21', value: 500000 },
+  { season: '21/22', value: 1000000 },
+  { season: '22/23', value: 2000000 },
+  { season: '23/24', value: 3000000 },
+  { season: '24/25', value: 4000000 },
+];
+
+const ratingData = [
+  { season: '20/21', rating: 70, potential: 85 },
+  { season: '21/22', rating: 75, potential: 87 },
+  { season: '22/23', rating: 78, potential: 88 },
+  { season: '23/24', rating: 80, potential: 89 },
+  { season: '24/25', rating: 82, potential: 90 },
+];
+
+const goalsAssistsData = [
+  { season: '20/21', goals: 5, assists: 3 },
+  { season: '21/22', goals: 8, assists: 5 },
+  { season: '22/23', goals: 12, assists: 7 },
+  { season: '23/24', goals: 15, assists: 10 },
+  { season: '24/25', goals: 18, assists: 12 },
+];
 
 interface PlayerSuggestion {
   idPlayer: string;
@@ -303,7 +330,7 @@ export default function Home() {
   }
 
   return (
-    <div className="relative h-screen overflow-hidden md:overflow-hidden flex flex-col font-[family-name:var(--font-michroma)]">
+    <div className="relative min-h-screen overflow-x-hidden flex flex-col font-[family-name:var(--font-michroma)]">
       {/* LiquidChrome Background */}
       <div className="absolute inset-0">
         {liquidChromeBackground}
@@ -320,7 +347,7 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main className="relative z-10 px-3 sm:px-4 md:px-6 py-3 sm:py-4 w-full md:w-[95vw] mx-auto flex-1 flex flex-col min-h-0 opacity-100 overflow-y-auto">
+      <main className="relative z-10 px-3 sm:px-4 md:px-6 py-3 sm:py-4 w-full md:w-[95vw] mx-auto flex-1 flex flex-col min-h-0 opacity-100 overflow-x-hidden">
         {/* Title Section */}
         <div className="mb-3 sm:mb-4 shrink-0">
           <h1 className="text-xl sm:text-2xl font-bold text-white mb-1">FIFA Rating Predictor</h1>
@@ -403,9 +430,9 @@ export default function Home() {
               <div className="hidden md:block md:flex-1"></div>
 
               {/* Images Section - 2/3 */}
-              <div className="flex flex-row gap-1 sm:gap-2 items-end h-fit mt-1.5 sm:mt-2">
+              <div className="flex flex-row gap-1 sm:gap-2 items-stretch h-fit mt-1.5 sm:mt-2">
                 {/* Left: Player Image - 3/5 width */}
-                <div className="w-3/5 md:w-3/5 aspect-[3/5] max-h-[160px] sm:max-h-[180px] md:max-h-none rounded-md sm:rounded-lg flex items-center justify-center border-2 sm:border-3 border-emerald-500/30 overflow-hidden transition-all duration-300 bg-black/10">
+                <div className="w-3/5 md:w-3/5 aspect-[3/5] max-h-[160px] sm:max-h-[180px] md:max-h-[320px] lg:max-h-[360px] xl:max-h-[400px] rounded-md sm:rounded-lg flex items-center justify-center border-2 sm:border-3 border-emerald-500/30 overflow-hidden transition-all duration-300 bg-black/10">
                   {isLoadingImage ? (
                     <span className="text-white text-[10px] sm:text-xs">Loading...</span>
                   ) : playerImage ? (
@@ -419,7 +446,7 @@ export default function Home() {
                   )}
                 </div>
                 {/* Right: Club badge (top), Flag (bottom) - 2/5 width */}
-                <div className="w-2/5 flex flex-col items-center justify-around h-full min-h-[100px] sm:min-h-[120px] md:min-h-[180px] pb-1 sm:pb-2">
+                <div className="w-2/5 flex flex-col items-center justify-around max-h-[160px] sm:max-h-[180px] md:max-h-[320px] lg:max-h-[360px] xl:max-h-[400px] min-h-[120px] sm:min-h-[140px] md:min-h-[140px]">
                   {/* Club Badge */}
                   <div className="w-[50px] h-[50px] sm:w-[58px] sm:h-[58px] md:w-[85px] md:h-[85px] lg:w-[106px] lg:h-[106px] rounded flex items-center justify-center overflow-hidden transition-all duration-300">
                     {teamBadge ? (
@@ -429,7 +456,7 @@ export default function Home() {
                     )}
                   </div>
                   {/* Nationality Flag */}
-                  <div className="w-[60px] h-[32px] sm:w-[69px] sm:h-[37px] md:w-[100px] md:h-[53px] lg:w-[127px] lg:h-[67px] rounded flex items-center justify-center overflow-hidden transition-all duration-300">
+                  <div className="w-[80px] h-[43px] sm:w-[92px] sm:h-[49px] md:w-[113px] md:h-[60px] lg:w-[136px] lg:h-[72px] rounded flex items-center justify-center overflow-hidden transition-all duration-300">
                     {nationalityText && getNationalityCode(nationalityText) ? (
                       <img
                         src={`https://flagcdn.com/${getNationalityCode(nationalityText)}.svg`}
@@ -461,11 +488,13 @@ export default function Home() {
                     key={season}
                     onClick={() => setSelectedPredictionSeason(season)}
                     className={
-                      `h-[32px] sm:h-[36px] lg:h-[37.14px] px-1 sm:px-2 lg:px-0 rounded-md lg:rounded-lg backdrop-blur-md bg-transparent text-[10px] sm:text-xs font-bold transition-all duration-200 flex items-center justify-center lg:flex-1
-                      ${selectedPredictionSeason === season ? 'border-2 border-emerald-400 bg-emerald-500/90 shadow-md text-white' : 'border border-white/4 hover:bg-emerald-400/30 text-gray-400'}
+                      `h-[32px] sm:h-[36px] lg:h-[37.14px] px-1 sm:px-2 lg:px-0 rounded-md lg:rounded-lg backdrop-blur-md text-[10px] sm:text-xs font-bold transition-all duration-200 flex items-center justify-center lg:flex-1
+                      ${selectedPredictionSeason === season
+                        ? 'border-2 border-emerald-400 bg-emerald-500/90 shadow-md text-white'
+                        : 'border-2 border-emerald-300/60 bg-black/40 hover:bg-emerald-400/30 text-emerald-100 shadow-[0_2px_8px_0_rgba(0,255,180,0.10)]'}
                       `
                     }
-                    style={{ minWidth: 0 }}
+                    style={{ minWidth: 0, textShadow: selectedPredictionSeason === season ? '0 1px 4px #000' : '0 1px 2px #000' }}
                   >
                     {season}
                   </button>
@@ -474,21 +503,39 @@ export default function Home() {
             </div>
             {/* Predicted Rating Card */}
             <div className="backdrop-blur-md bg-black/20 border border-white/10 rounded-xl p-3 sm:p-4 flex flex-col shrink-0">
-              <h3 className="text-gray-400 text-[10px] sm:text-xs mb-1.5 sm:mb-2">Predicted Rating:</h3>
-              <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
-                <span className="text-3xl sm:text-4xl md:text-5xl font-bold bg-gradient-to-r from-cyan-400 via-emerald-400 to-blue-500 bg-clip-text text-transparent">
-                  {predictedStatsLib?.predictOverall ? (
-                    <CountUp to={Number(predictedStatsLib.predictOverall.toFixed(0))} duration={1.0} />
-                  ) : (
-                    "--"
-                  )}
-                </span>
-                <div className={`flex items-center gap-1 ${predictedStatsLib?.predictRatingChange && predictedStatsLib.predictRatingChange < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-                  <span className="text-lg sm:text-xl md:text-2xl">{predictedStatsLib?.predictRatingChange && predictedStatsLib.predictRatingChange < 0 ? '↓' : '↑'}</span>
-                  <span className="text-base sm:text-lg md:text-xl font-semibold">
-                    {predictedStatsLib?.predictRatingChange ?
-                      (predictedStatsLib.predictRatingChange >= 0 ? '+' : '') + (predictedStatsLib.predictRatingChange)
-                      : "--"}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center">
+                  <h3 className="text-gray-400 text-[10px] sm:text-xs mb-1.5 sm:mb-2">Predicted Rating:</h3>
+                  <div className="flex items-center justify-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
+                    <span className="text-3xl sm:text-4xl md:text-5xl font-bold bg-gradient-to-r from-cyan-400 via-emerald-400 to-blue-500 bg-clip-text text-transparent">
+                      {predictedStatsLib?.predictOverall ? (
+                        <CountUp to={Number(predictedStatsLib.predictOverall.toFixed(0))} duration={1.0} />
+                      ) : (
+                        "--"
+                      )}
+                    </span>
+                    <div className={`flex items-center gap-1 ${predictedStatsLib?.predictRatingChange && predictedStatsLib.predictRatingChange < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                      <span className="text-lg sm:text-xl md:text-2xl">{predictedStatsLib?.predictRatingChange && predictedStatsLib.predictRatingChange < 0 ? '↓' : '↑'}</span>
+                      <span className="text-base sm:text-lg md:text-xl font-semibold">
+                        {predictedStatsLib?.predictRatingChange ?
+                          (predictedStatsLib.predictRatingChange >= 0 ? '+' : '') + (predictedStatsLib.predictRatingChange)
+                          : "--"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-center">
+                  <h3 className="text-gray-400 text-[10px] sm:text-xs mb-1.5 sm:mb-2">Predicted Value:</h3>
+                  <span className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-green-400 to-green-500 bg-clip-text text-transparent">
+                    {predictedStatsLib?.predictValue ? (
+                      <>
+                        $
+                        <CountUp to={Number(((predictedStatsLib.predictValue * 1.18) / 1000000).toFixed(1))} duration={1.0} decimals={1} />
+                        M
+                      </>
+                    ) : (
+                      "--"
+                    )}
                   </span>
                 </div>
               </div>
@@ -496,18 +543,29 @@ export default function Home() {
 
             {/* Predicted Next Season Stats */}
             <div className="backdrop-blur-md bg-black/20 border border-white/10 rounded-xl p-3 sm:p-4 md:p-4 lg:p-3 xl:p-4 flex-1 flex flex-col shrink-0 md:min-h-0 relative overflow-visible">
-              {/* Predictions Header */}
-              <div className="flex justify-start mb-2 sm:mb-3 md:mb-3 lg:mb-2 xl:mb-3">
-                <span className="text-white text-sm sm:text-base md:text-base lg:text-base xl:text-lg font-semibold tracking-wider" style={{letterSpacing: '1px'}}>PREDICTIONS</span>
+              {/* Header Row for Predictions and Columns */}
+              <div className="flex flex-col w-full mb-1 sm:mb-1 md:mb-1 lg:mb-1 xl:mb-1">
+                <h3 className="text-gray-400 text-[10px] sm:text-xs mb-1.5 sm:mb-2" style={{letterSpacing: '1px'}}>PREDICTIONS</h3>
+                <div className="hidden md:flex flex-row w-full items-center justify-between gap-4 min-h-[56px] sm:min-h-[64px] md:min-h-[72px] lg:min-h-[80px] xl:min-h-[90px]">
+                  <div className="flex-1 flex items-center justify-center">
+                    <span className="text-gray-200 text-sm sm:text-base md:text-base lg:text-lg xl:text-xl font-bold tracking-wide text-center">FIFA Attributes</span>
+                  </div>
+                  <div className="flex-1 flex items-center justify-center">
+                    <span className="text-gray-200 text-sm sm:text-base md:text-base lg:text-lg xl:text-xl font-bold tracking-wide text-center px-2">Season Performance</span>
+                  </div>
+                </div>
               </div>
               {/* Two Column Layout */}
               <div className="flex-1 flex flex-col md:flex-row gap-4 sm:gap-5 md:gap-3 lg:gap-4 xl:gap-4 min-h-0">
-                {/* Left Column - Radar Chart */}
+                {/* Left Column - FIFA Attributes and Radar Map */}
                 <div className="flex-1 flex flex-col items-center justify-center min-h-0">
-                  <div className="flex w-full justify-center mb-2 lg:pt-4 md:mb-4 sm:mb-2 pb-3 xs:mb-2 pb-4 ">
-                    <span className="text-gray-200 text-sm sm:text-base md:text-base lg:text-base xl:text-lg font-bold tracking-wide text-center">FIFA Attributes</span>
+                  {/* FIFA Attributes Header for small screens */}
+                  <div className="flex md:hidden items-center justify-center mb-4 py-2">
+                    <span className="text-gray-200 text-sm sm:text-base font-bold tracking-wide text-center">FIFA Attributes</span>
                   </div>
-                  <div className="relative w-40 h-40 xs:w-48 xs:h-48 sm:w-52 sm:h-52 md:w-48 md:h-48 lg:w-48 lg:h-48 xl:w-56 xl:h-56 2xl:w-64 2xl:h-64 mt-2 sm:mt-3 md:mt-2 lg:mt-4 xl:mt-6">
+                  {/* Radar Map (unchanged) */}
+                  <div className="relative w-40 h-40 xs:w-44 xs:h-44 sm:w-48 sm:h-48 md:w-48 md:h-48 lg:w-48 lg:h-48 xl:w-56 xl:h-56 2xl:w-64 2xl:h-64 mt-4 sm:mt-2 md:mt-1 lg:mb-8 xl:mb-10">
+                    {/* Radar Map SVG and Stat Labels */}
                     {/* Background rings with gradient */}
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="w-full h-full border border-white/5 rounded-full" />
@@ -524,13 +582,11 @@ export default function Home() {
                     <div className="absolute inset-[66.67%] flex items-center justify-center">
                       <div className="w-full h-full border border-white/20 rounded-full" />
                     </div>
-                    
                     {/* Grid lines */}
                     <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100">
                       {/* Vertical lines */}
                       <line x1="50" y1="0" x2="50" y2="100" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
                       <line x1="0" y1="50" x2="100" y2="50" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
-                      
                       {/* Diagonal lines for hexagon */}
                       <line x1="50" y1="0" x2="93.3" y2="25" stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" />
                       <line x1="93.3" y1="25" x2="93.3" y2="75" stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" />
@@ -539,7 +595,6 @@ export default function Home() {
                       <line x1="6.7" y1="75" x2="6.7" y2="25" stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" />
                       <line x1="6.7" y1="25" x2="50" y2="0" stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" />
                     </svg>
-                    
                     {/* Hexagon polygon for stats */}
                     {predictedStatsLib && (
                       <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100">
@@ -557,12 +612,10 @@ export default function Home() {
                             </feMerge>
                           </filter>
                         </defs>
-                        {/* Calculate hexagon vertices using trigonometry */}
                         {(() => {
                           const centerX = 50;
                           const centerY = 50;
-                          const radius = 45; // max radius for stat
-                          // Order: Pace, Shooting, Passing, Dribbling, Defending, Physic
+                          const radius = 45;
                           const stats = [
                             predictedStatsLib.predictPace || 0,
                             predictedStatsLib.predictShooting || 0,
@@ -571,11 +624,8 @@ export default function Home() {
                             predictedStatsLib.predictDefending || 0,
                             predictedStatsLib.predictPhysic || 0,
                           ];
-                          // Each vertex is 60 degrees apart, starting at -90deg (top)
                           const angles = Array.from({length: 6}, (_, i) => -90 + i * 60);
-                          // Convert stat to radius (normalized to 0-1, assuming max 99)
                           const normStats = stats.map(s => Math.max(0, Math.min(1, s / 99)));
-                          // Get points for polygon
                           const points = angles.map((angle, i) => {
                             const rad = (angle * Math.PI) / 180;
                             const r = normStats[i] * radius;
@@ -583,17 +633,13 @@ export default function Home() {
                             const y = centerY + r * Math.sin(rad);
                             return `${x},${y}`;
                           }).join(' ');
-                          // For outline, use same points
-                          // For dots, get each vertex
                           return (
                             <>
-                              {/* Background fill */}
                               <polygon
                                 points={points}
                                 fill="url(#radarGradient)"
                                 stroke="none"
                               />
-                              {/* Main polygon outline */}
                               <polygon
                                 points={points}
                                 fill="none"
@@ -601,7 +647,6 @@ export default function Home() {
                                 strokeWidth="2"
                                 filter="url(#glow)"
                               />
-                              {/* Value dots on vertices */}
                               {angles.map((angle, i) => {
                                 const rad = (angle * Math.PI) / 180;
                                 const r = normStats[i] * radius;
@@ -614,7 +659,6 @@ export default function Home() {
                         })()}
                       </svg>
                     )}
-                    
                     {/* Stat Labels with values - responsive positioning */}
                     <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-6 sm:-translate-y-7 md:-translate-y-6 lg:-translate-y-6 xl:-translate-y-7 text-center">
                       <div className="text-emerald-400 text-[9px] sm:text-[10px] md:text-[10px] lg:text-[10px] xl:text-xs font-bold tracking-wider">PAC</div>
@@ -640,65 +684,181 @@ export default function Home() {
                       <div className="text-orange-400 text-[9px] sm:text-[10px] md:text-[10px] lg:text-[10px] xl:text-xs font-bold tracking-wider">PHY</div>
                       <div className="text-white text-xs sm:text-sm md:text-sm lg:text-sm font-semibold">{predictedStatsLib?.predictPhysic ? Math.ceil(predictedStatsLib.predictPhysic) : "--"}</div>
                     </div>
-                    
                     {/* Center circle with glow */}
                     <div className="absolute inset-[40%] bg-gradient-to-br from-emerald-500/30 to-emerald-600/20 rounded-full border border-emerald-400/50 shadow-lg shadow-emerald-500/20" />
                   </div>
                 </div>
 
-                {/* Right Column - Number Stats */}
-                <div className="flex-1 flex flex-col justify-center items-center">
-                  <div className="flex w-full justify-center mb-2 lg:pb-8 mb-6 md:mb-2 mt-2 md:mt-0 sm:pt-4 mt-4 xs: pt-4 mt-2">
-                    <span className="text-gray-200 text-sm sm:text-base md:text-sm lg:text-base xl:text-lg font-bold tracking-wide text-center px-2">Season Performance (League Only)</span>
+                {/* Right Column - Season Performance 2x2 Grid */}
+                <div className="flex-1 flex flex-col justify-center items-center min-h-0">
+                  {/* Season Performance Header for small screens */}
+                  <div className="flex md:hidden items-center justify-center mb-2 py-2 mt-6 pt-4">
+                    <span className="text-gray-200 text-sm sm:text-base font-bold tracking-wide text-center px-2">Season Performance</span>
                   </div>
-                  <div className="grid grid-cols-1 gap-1 sm:gap-1.5 md:gap-1.5 lg:gap-1.5 xl:gap-2 mt-1 w-full">
-                    {/* Goals & Assists Row */}
-                    <div className="grid grid-cols-2 gap-1 sm:gap-1.5 md:gap-1.5 lg:gap-1.5 xl:gap-2">
-                      <div className="flex flex-col items-center p-1 sm:p-1.5 md:p-1.5 lg:p-1.5 xl:p-2 rounded-lg">
-                        <span className="text-gray-400 text-[10px] sm:text-xs md:text-xs lg:text-xs xl:text-sm uppercase tracking-wider mb-0.5">Goals</span>
-                        <span className="text-blue-400 text-xl sm:text-2xl md:text-2xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold">
-                          {predictedStatsLib?.predictedGoals ? Math.ceil(predictedStatsLib.predictedGoals) : "--"}
-                        </span>
-                      </div>
-                      <div className="flex flex-col items-center p-1 sm:p-1.5 md:p-1.5 lg:p-1.5 xl:p-2 rounded-lg">
-                        <span className="text-gray-400 text-[10px] sm:text-xs md:text-xs lg:text-xs xl:text-sm uppercase tracking-wider mb-0.5">Assists</span>
-                        <span className="text-yellow-400 text-xl sm:text-2xl md:text-2xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold">
-                          {predictedStatsLib?.predictedAssists ? Math.ceil(predictedStatsLib.predictedAssists) : "--"}
-                        </span>
-                      </div>
+                  <div className="grid grid-cols-2 grid-rows-2 gap-1 sm:gap-2 w-full min-h-[100px] sm:min-h-[110px] md:min-h-[120px] lg:min-h-[130px] xl:min-h-[140px]">
+                    {/* Goals */}
+                    <div className="flex flex-col items-center p-1 sm:p-1.5 md:p-1.5 lg:p-1.5 xl:p-2 rounded-lg">
+                      <span className="text-gray-400 text-[10px] sm:text-xs md:text-xs lg:text-xs xl:text-sm uppercase tracking-wider mb-0.5">Goals</span>
+                      <span className="text-blue-400 text-xl sm:text-2xl md:text-2xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold">
+                        {predictedStatsLib?.predictedGoals ? Math.ceil(predictedStatsLib.predictedGoals) : "--"}
+                      </span>
                     </div>
-
-                    {/* Defense & Key Passes Row */}
-                    <div className="grid grid-cols-2 gap-1 sm:gap-1.5 md:gap-1.5 lg:gap-1.5 xl:gap-2">
-                      <div className="flex flex-col items-center p-1 sm:p-1.5 md:p-1.5 lg:p-1.5 xl:p-2 pb-0 rounded-lg">
-                        <span className="text-gray-400 text-[10px] sm:text-xs md:text-xs lg:text-xs xl:text-sm uppercase tracking-wider mb-0.5">Defense</span>
-                        <span className="text-red-400 text-xl sm:text-2xl md:text-2xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold">
-                          {predictedStatsLib?.predictedInterceptions && predictedStatsLib?.predictedTackles ?
-                            Math.ceil(predictedStatsLib.predictedInterceptions + predictedStatsLib.predictedTackles) : "--"}
-                        </span>
-                      </div>
-                      <div className="flex flex-col items-center p-1 sm:p-1.5 md:p-1.5 lg:p-1.5 xl:p-2 pb-0 rounded-lg">
-                        <span className="text-gray-400 text-[10px] sm:text-xs md:text-xs lg:text-xs xl:text-sm uppercase tracking-wider mb-0.5">Key Passes</span>
-                        <span className="text-purple-400 text-xl sm:text-2xl md:text-2xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold">
-                          {predictedStatsLib?.predictedKeyPasses ? Math.ceil(predictedStatsLib.predictedKeyPasses) : "--"}
-                        </span>
-                      </div>
+                    {/* Assists */}
+                    <div className="flex flex-col items-center p-1 sm:p-1.5 md:p-1.5 lg:p-1.5 xl:p-2 rounded-lg">
+                      <span className="text-gray-400 text-[10px] sm:text-xs md:text-xs lg:text-xs xl:text-sm uppercase tracking-wider mb-0.5">Assists</span>
+                      <span className="text-yellow-400 text-xl sm:text-2xl md:text-2xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold">
+                        {predictedStatsLib?.predictedAssists ? Math.ceil(predictedStatsLib.predictedAssists) : "--"}
+                      </span>
                     </div>
-
-                    {/* Spacer to move only Market Value down */}
-                    <div className="h-2 sm:h-3 md:h-3 lg:h-3 xl:h-4" />
-
-                    {/* Market Value */}
-                    <div className="flex flex-col items-center p-1 sm:p-1.5 md:p-1.5 lg:p-1.5 xl:p-2 pt-0 rounded-lg">
-                      <span className="text-gray-400 text-[10px] sm:text-xs md:text-xs lg:text-xs xl:text-sm uppercase tracking-wider mb-0.5">Market Value</span>
-                      <span className="text-emerald-400 text-xl sm:text-2xl md:text-2xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold">
-                        {predictedStatsLib?.predictValue ? `$${(1.18 * (predictedStatsLib.predictValue / 1000000)).toFixed(1)}M` : "--"}
+                    {/* Defensive Contributions */}
+                    <div className="flex flex-col items-center p-1 sm:p-1.5 md:p-1.5 lg:p-1.5 xl:p-2 pb-0 rounded-lg">
+                      <span className="text-gray-400 text-[10px] sm:text-xs md:text-xs lg:text-xs xl:text-sm uppercase tracking-wider mb-0.5 text-center">Def Contrib.</span>
+                      <span className="text-red-400 text-xl sm:text-2xl md:text-2xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold">
+                        {predictedStatsLib?.predictedInterceptions && predictedStatsLib?.predictedTackles ?
+                          Math.ceil(predictedStatsLib.predictedInterceptions + predictedStatsLib.predictedTackles) : "--"}
+                      </span>
+                    </div>
+                    {/* Key Passes */}
+                    <div className="flex flex-col items-center p-1 sm:p-1.5 md:p-1.5 lg:p-1.5 xl:p-2 pb-0 rounded-lg">
+                      <span className="text-gray-400 text-[10px] sm:text-xs md:text-xs lg:text-xs xl:text-sm uppercase tracking-wider mb-0.5">Key Passes</span>
+                      <span className="text-purple-400 text-xl sm:text-2xl md:text-2xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold">
+                        {predictedStatsLib?.predictedKeyPasses ? Math.ceil(predictedStatsLib.predictedKeyPasses) : "--"}
                       </span>
                     </div>
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
 
+        {/* Overall Progression Section */}
+        <div className="backdrop-blur-md bg-black/20 border border-white/10 rounded-xl p-3 sm:p-4 mt-4" style={{ minHeight: '500px' }}>
+          <h3 className="text-gray-400 text-xs sm:text-sm mb-1.5 sm:mb-2">Overall Progression</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-full" style={{ height: '400px', minHeight: window.innerWidth < 768 ? '800px' : '400px' }}>
+            <div className="flex flex-col">
+              <h4 className="text-white text-xs mb-2">Market Value</h4>
+              <div
+                className="flex-1 outline-none"
+                style={{
+                  height: '550px',
+                  WebkitTapHighlightColor: 'transparent',
+                  ...(window.innerWidth < 768 ? { height: '600px' } : {})
+                }}
+                tabIndex={-1}
+              >
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                  style={{ outline: 'none', userSelect: 'none', pointerEvents: 'auto' }}
+                >
+                  <LineChart
+                    data={marketValueData}
+                    style={{ outline: 'none', userSelect: 'none', pointerEvents: 'auto' }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#888888" />
+                    <XAxis dataKey="season" stroke="#fff" fontSize={10} interval={0} tick={{ fill: '#fff' }} />
+                    <YAxis 
+                      stroke="#fff" 
+                      fontSize={10} 
+                      tick={{ fill: '#fff' }}
+                      tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'rgba(0,0,0,0.5)',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        borderRadius: '6px',
+                        color: 'rgba(255,255,255,0.7)',
+                        fontSize: '11px',
+                        fontWeight: 400
+                      }}
+                      formatter={(value) => [`$${(value / 1000000).toFixed(1)}M`, 'Market Value']}
+                    />
+                    <Line type="monotone" dataKey="value" stroke="#10B981" strokeWidth={2} activeDot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <div className="flex flex-col">
+              <h4 className="text-white text-xs mb-2">Rating/Potential</h4>
+              <div
+                className="flex-1 outline-none"
+                style={{
+                  height: '550px',
+                  WebkitTapHighlightColor: 'transparent',
+                  '--chart-height': '600px',
+                  ...(window.innerWidth < 768 ? { height: '600px' } : {})
+                }}
+                tabIndex={-1}
+              >
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                  style={{ outline: 'none', userSelect: 'none', pointerEvents: 'auto' }}
+                >
+                  <LineChart
+                    data={ratingData}
+                    style={{ outline: 'none', userSelect: 'none', pointerEvents: 'auto' }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#888888" />
+                    <XAxis dataKey="season" stroke="#fff" fontSize={10} interval={0} tick={{ fill: '#fff' }} />
+                    <YAxis stroke="#fff" fontSize={10} tick={{ fill: '#fff' }} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'rgba(0,0,0,0.5)',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        borderRadius: '6px',
+                        color: 'rgba(255,255,255,0.7)',
+                        fontSize: '11px',
+                        fontWeight: 400
+                      }}
+                    />
+                    <Line type="monotone" dataKey="rating" stroke="#3B82F6" strokeWidth={2} activeDot={false} />
+                    <Line type="monotone" dataKey="potential" stroke="#F59E0B" strokeWidth={2} activeDot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <div className="flex flex-col">
+              <h4 className="text-white text-xs mb-2">Goals & Assists</h4>
+              <div
+                className="flex-1 outline-none"
+                style={{
+                  height: '550px',
+                  WebkitTapHighlightColor: 'transparent',
+                  '--chart-height': '600px',
+                  ...(window.innerWidth < 768 ? { height: '600px' } : {})
+                }}
+                tabIndex={-1}
+              >
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                  style={{ outline: 'none', userSelect: 'none', pointerEvents: 'auto' }}
+                >
+                  <LineChart
+                    data={goalsAssistsData}
+                    style={{ outline: 'none', userSelect: 'none', pointerEvents: 'auto' }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#888888" />
+                    <XAxis dataKey="season" stroke="#fff" fontSize={10} interval={0} tick={{ fill: '#fff' }} />
+                    <YAxis stroke="#fff" fontSize={10} tick={{ fill: '#fff' }} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'rgba(0,0,0,0.5)',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        borderRadius: '6px',
+                        color: 'rgba(255,255,255,0.7)',
+                        fontSize: '11px',
+                        fontWeight: 400
+                      }}
+                    />
+                    <Line type="monotone" dataKey="goals" stroke="#EF4444" strokeWidth={2} activeDot={false} />
+                    <Line type="monotone" dataKey="assists" stroke="#F59E0B" strokeWidth={2} activeDot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
         </div>

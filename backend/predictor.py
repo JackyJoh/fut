@@ -142,7 +142,7 @@ def predictStats(dfStats, player=None):
             results['predictRatingChange'] = round((momentum) * .05)
         # Fix predicted overall based off new rating change
         results['predictOverall'] = float(Math.ceil(float(dfStats['overall'].iloc[0]) + results['predictRatingChange']))
-        results['predictedPotential'] = dfStats['potential'].iloc[0]
+        results['predictedPotential'] = float(dfStats['potential'].iloc[0])
         return results
 
 
