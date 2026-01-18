@@ -6,5 +6,12 @@ uvicorn
 sqlmodel
 psycopg2-binary
 
+# Data Science & ML
+pandas
+scikit-learn
+numpy
+
 # Utilities
 python-dotenv
+pydantic-settings
+xgboost
