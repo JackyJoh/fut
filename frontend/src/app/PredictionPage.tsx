@@ -152,6 +152,11 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
       const response = await fetch(
         `http://localhost:8000/searchPlayers?name=${encodeURIComponent(query)}`
       );
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json();
       
       if (data && data.length > 0) {
@@ -205,6 +210,11 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
       const playerResponse = await fetch(
         `https://www.thesportsdb.com/api/v1/json/123/searchplayers.php?p=${encodeURIComponent(playerName)}`
       );
+      
+      if (!playerResponse.ok) {
+        throw new Error(`HTTP error! status: ${playerResponse.status}`);
+      }
+      
       const playerData = await playerResponse.json();
       
       if (playerData.player && playerData.player.length > 0) {
@@ -223,6 +233,11 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
               const teamResponse = await fetch(
                 `https://www.thesportsdb.com/api/v1/json/123/searchteams.php?t=${encodeURIComponent(player.strTeam)}`
               );
+              
+              if (!teamResponse.ok) {
+                throw new Error(`HTTP error! status: ${teamResponse.status}`);
+              }
+              
               const teamData = await teamResponse.json();
               
               if (teamData.teams && teamData.teams.length > 0) {
@@ -323,6 +338,11 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
           const response = await fetch(
             `http://localhost:8000/predictPlayer/${playerId}`
           );
+          
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          
           const predictionData = await response.json();
           console.log("Predicted Data:", predictionData);
           setPredictedStatsLib(predictionData.predicted_stats);

@@ -5,10 +5,14 @@ from models import Player
 import math as Math
 from model_utils import player_to_features
 import concurrent.futures
+import os
 
+# Get the absolute path to the models directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODELS_DIR = os.path.join(os.path.dirname(BASE_DIR), "models")
 
 # LOAD MODELS
-with open("../models/faceStatsBundle.pkl", "rb") as f:
+with open(os.path.join(MODELS_DIR, "faceStatsBundle.pkl"), "rb") as f:
     MODEL_BUNDLE = pickle.load(f)
 paceModel = MODEL_BUNDLE['pace']
 shootingModel = MODEL_BUNDLE['shooting']
@@ -17,17 +21,17 @@ dribblingModel = MODEL_BUNDLE['dribbling']
 defendingModel = MODEL_BUNDLE['defending']
 physicModel = MODEL_BUNDLE['physic']
 #IRL Stats Models
-key90 = pickle.load(open("../models/key90Model.pkl", "rb"))
-a90Model = pickle.load(open("../models/a90Model.pkl", "rb"))
-g90Model = pickle.load(open("../models/g90Model.pkl", "rb"))
-int90Model = pickle.load(open("../models/int90Model.pkl", "rb"))
-tkl90Model = pickle.load(open("../models/tkl90Model.pkl", "rb"))
-minModel = pickle.load(open("../models/minutesModel.pkl", "rb"))
+key90 = pickle.load(open(os.path.join(MODELS_DIR, "key90Model.pkl"), "rb"))
+a90Model = pickle.load(open(os.path.join(MODELS_DIR, "a90Model.pkl"), "rb"))
+g90Model = pickle.load(open(os.path.join(MODELS_DIR, "g90Model.pkl"), "rb"))
+int90Model = pickle.load(open(os.path.join(MODELS_DIR, "int90Model.pkl"), "rb"))
+tkl90Model = pickle.load(open(os.path.join(MODELS_DIR, "tkl90Model.pkl"), "rb"))
+minModel = pickle.load(open(os.path.join(MODELS_DIR, "minutesModel.pkl"), "rb"))
 # Extra Fifa
-potModel = pickle.load(open("../models/potModel.pkl", "rb"))
-ratingChange = pickle.load(open("../models/changeModel.pkl", "rb"))
-overallModel = pickle.load(open("../models/ovrModel.pkl", "rb"))
-valModel = pickle.load(open("../models/valModel.pkl", "rb"))
+potModel = pickle.load(open(os.path.join(MODELS_DIR, "potModel.pkl"), "rb"))
+ratingChange = pickle.load(open(os.path.join(MODELS_DIR, "changeModel.pkl"), "rb"))
+overallModel = pickle.load(open(os.path.join(MODELS_DIR, "ovrModel.pkl"), "rb"))
+valModel = pickle.load(open(os.path.join(MODELS_DIR, "valModel.pkl"), "rb"))
 
 
 
@@ -125,28 +129,35 @@ def predictStats(dfStats, player=None):
                 results[task_name] = None
                 print(f"Error in {task_name}: {e}")
     # Change per 90 to normal stats where applicable
-    playing_time_min = float(dfStats['Playing Time_Min'].iloc[0])
-    results['predictedGoals'] = float(results.pop('predictG90')) * (playing_time_min / 90)
-    results['predictedAssists'] = float(results.pop('predictA90')) * (playing_time_min / 90)
-    results['predictedInterceptions'] = float(results.pop('predictInt90')) * (playing_time_min / 90)
-    results['predictedTackles'] = float(results.pop('predictTkl90')) * (playing_time_min / 90)
-    results['predictedKeyPasses'] = float(results.pop('predictKey90')) * (playing_time_min / 90)
+    playing_time_min = dfStats['Playing Time_Min'].iloc[0]
+    playing_time_min = float(playing_time_min) if playing_time_min is not None else 0.0
+    results['predictedGoals'] = float(results.pop('predictG90')) * (playing_time_min / 90) if playing_time_min > 0 else 0.0
+    results['predictedAssists'] = float(results.pop('predictA90')) * (playing_time_min / 90) if playing_time_min > 0 else 0.0
+    results['predictedInterceptions'] = float(results.pop('predictInt90')) * (playing_time_min / 90) if playing_time_min > 0 else 0.0
+    results['predictedTackles'] = float(results.pop('predictTkl90')) * (playing_time_min / 90) if playing_time_min > 0 else 0.0
+    results['predictedKeyPasses'] = float(results.pop('predictKey90')) * (playing_time_min / 90) if playing_time_min > 0 else 0.0
 
    
     # NEED TO CLEAN THIS CODE BELOW
 
     # Rating Momentum Fix (if momentum is very high, give revert negatives)
     momentum = dfStats['rating_momentum'].iloc[0]
+    momentum = float(momentum) if momentum is not None else 0.0
     if momentum > 10:
         if results['predictRatingChange'] < 0:
             results['predictRatingChange'] = round((momentum) * .05)
         # Fix predicted overall based off new rating change
-        results['predictOverall'] = float(Math.ceil(float(dfStats['overall'].iloc[0]) + results['predictRatingChange']))
-        results['predictedPotential'] = float(dfStats['potential'].iloc[0])
+        overall_val = dfStats['overall'].iloc[0]
+        overall_val = float(overall_val) if overall_val is not None else 0.0
+        results['predictOverall'] = float(Math.ceil(overall_val + results['predictRatingChange']))
+        potential_val = dfStats['potential'].iloc[0]
+        results['predictedPotential'] = float(potential_val) if potential_val is not None else 0.0
         return results
 
 
-    current_overall = Math.ceil(float(dfStats['overall'].iloc[0]))
+    current_overall_val = dfStats['overall'].iloc[0]
+    current_overall_val = float(current_overall_val) if current_overall_val is not None else 0.0
+    current_overall = Math.ceil(current_overall_val)
     rating_change = results['predictOverall'] - current_overall
     if 0 < rating_change < 1:
         results['predictOverall'] = float(current_overall + 1)
@@ -159,7 +170,9 @@ def predictStats(dfStats, player=None):
     
      # value fix | high value players tend to drop crazy value w little rating change and not old
     player_value_eur = getattr(player, 'value_eur', None) if player else None
-    if dfStats['age_fifa'].iloc[0] < 30 and player_value_eur > 80000000:
+    age_fifa_val = dfStats['age_fifa'].iloc[0]
+    age_fifa_val = int(age_fifa_val) if age_fifa_val is not None else 0
+    if age_fifa_val < 30 and player_value_eur is not None and player_value_eur > 80000000:
         if results['predictRatingChange'] is not None and results['predictRatingChange'] < 1:
             results['predictValue'] = player_value_eur * (0.95 - (results['predictRatingChange'] * 0.02))
         elif results['predictRatingChange'] is not None and results['predictRatingChange'] >= 1:

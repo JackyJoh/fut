@@ -49,17 +49,20 @@ def predictPlayer(playerID: int, session: Session = Depends(get_session)):
     """
     Predict stats for a player given their player ID.
     """
-    player = get_player_by_id(session, playerID)
-    if not player:
-        return {"error": "Player not found"}
-    # Convert to model features
-    features = player_to_features(player)
-    # Make predictions
-    predicted_stats = predictStats(features, player)
-    return {
-        "player": player,
-        "predicted_stats": predicted_stats
-    }
+    try:
+        player = get_player_by_id(session, playerID)
+        if not player:
+            return {"error": "Player not found"}
+        # Convert to model features
+        features = player_to_features(player)
+        # Make predictions
+        predicted_stats = predictStats(features, player)
+        return {
+            "player": player,
+            "predicted_stats": predicted_stats
+        }
+    except Exception as e:
+        return {"error": f"Prediction failed: {str(e)}"}
 
 @app.get("/health")
 def health_check():
