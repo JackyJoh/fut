@@ -344,7 +344,6 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
           }
           
           const predictionData = await response.json();
-          console.log("Predicted Data:", predictionData);
           setPredictedStatsLib(predictionData.predicted_stats);
         } catch (error) {
           console.error("Error fetching predicted data:", error);

@@ -40,62 +40,154 @@ valModel = pickle.load(open(os.path.join(MODELS_DIR, "valModel.pkl"), "rb"))
 # Face Stats Predictions
 def predictPace(df_features) -> float:
     """Predict Pace"""
-    return paceModel.predict(df_features)[0]
+    try:
+        return float(paceModel.predict(df_features)[0])
+    except Exception as e:
+        # Fallback: try with values only
+        return float(paceModel.predict(df_features.values)[0])
+        
 def predictShooting(df_features) -> float:
     """Predict Shooting"""
-    return shootingModel.predict(df_features)[0]
+    try:
+        return float(shootingModel.predict(df_features)[0])
+    except Exception as e:
+        return float(shootingModel.predict(df_features.values)[0])
+        
 def predictDefending(df_features) -> float:
     """Predict Defending"""
-    return defendingModel.predict(df_features)[0]
+    try:
+        return float(defendingModel.predict(df_features)[0])
+    except Exception as e:
+        return float(defendingModel.predict(df_features.values)[0])
+        
 def predictPassing(df_features) -> float:
     """Predict Passing"""
-    return passingModel.predict(df_features)[0]
+    try:
+        return float(passingModel.predict(df_features)[0])
+    except Exception as e:
+        return float(passingModel.predict(df_features.values)[0])
+        
 def predictDribbling(df_features) -> float:
     """Predict Dribbling"""
-    return dribblingModel.predict(df_features)[0]
+    try:
+        return float(dribblingModel.predict(df_features)[0])
+    except Exception as e:
+        return float(dribblingModel.predict(df_features.values)[0])
+        
 def predictPhysic(df_features) -> float:
     """Predict Physic"""
-    return physicModel.predict(df_features)[0]
+    try:
+        return float(physicModel.predict(df_features)[0])
+    except Exception as e:
+        return float(physicModel.predict(df_features.values)[0])
+        
 # Core FIFA
 def predictRatingChange(df_features) -> float:
     """Predict Overall Rating Change"""
-    return ratingChange.predict(df_features)[0]
+    try:
+        return float(ratingChange.predict(df_features)[0])
+    except Exception as e:
+        return float(ratingChange.predict(df_features.values)[0])
+        
 def predictOverall(df_features) -> float:
     """Predict Overall Rating"""
-    return overallModel.predict(df_features)[0]
+    try:
+        return float(overallModel.predict(df_features)[0])
+    except Exception as e:
+        return float(overallModel.predict(df_features.values)[0])
+        
 def predictValue(df_features) -> float:
     """Predict Market Value EUR"""
-    return valModel.predict(df_features)[0]
+    try:
+        return float(valModel.predict(df_features)[0])
+    except Exception as e:
+        return float(valModel.predict(df_features.values)[0])
+        
 def predictPotential(df_features) -> float:
     """Predict Potential"""
-    return potModel.predict(df_features)[0]
+    try:
+        return float(potModel.predict(df_features)[0])
+    except Exception as e:
+        return float(potModel.predict(df_features.values)[0])
+        
 # IRL Stats
 def predictG90(df_features) -> float:
     """Predict Goals per 90"""
-    return g90Model.predict(df_features)[0]
+    try:
+        return float(g90Model.predict(df_features)[0])
+    except Exception as e:
+        return float(g90Model.predict(df_features.values)[0])
+        
 def predictA90(df_features) -> float:
     """Predict Assists per 90"""
-    return a90Model.predict(df_features)[0]
+    try:
+        return float(a90Model.predict(df_features)[0])
+    except Exception as e:
+        return float(a90Model.predict(df_features.values)[0])
+        
 def predictInt90(df_features) -> float:
     """Predict Interceptions per 90"""
-    return int90Model.predict(df_features)[0]
+    try:
+        return float(int90Model.predict(df_features)[0])
+    except Exception as e:
+        return float(int90Model.predict(df_features.values)[0])
+        
 def predictTkl90(df_features) -> float:
     """Predict Tackles per 90"""
-    return tkl90Model.predict(df_features)[0]
+    try:
+        return float(tkl90Model.predict(df_features)[0])
+    except Exception as e:
+        return float(tkl90Model.predict(df_features.values)[0])
+        
 def predictMin(df_features) -> float:
     """Predict Minutes Played"""
-    return minModel.predict(df_features)[0]
+    try:
+        return float(minModel.predict(df_features)[0])
+    except Exception as e:
+        return float(minModel.predict(df_features.values)[0])
+        
 def predictKey90(df_features) -> float:
     """Predict Key Passes per 90"""
-    return key90.predict(df_features)[0]
+    try:
+        return float(key90.predict(df_features)[0])
+    except Exception as e:
+        return float(key90.predict(df_features.values)[0])
 
+
+# Adjustment functions
+
+# Overall and change fix | rounding/matching
+def FixOverall(current, change):
+    if 0 < change < 1:
+        predictOverall = float(current + 1)
+        predictChange = 1.0
+    elif -1 < change < 0:
+        predictOverall = float(current - 1)
+        predictChange = -1.0
+    else:
+        predictOverall = float(current + round(float(change), 0))
+        predictChange = round(float(change),0)
+    
+    return predictOverall, predictChange
+
+def FixMomentum(momentum, ratingChange, ovr):
+
+    if ratingChange < 0:
+        predictChange = round((momentum) * .05)
+    else :
+        predictChange = ratingChange
+    # Fix predicted overall based off new rating change
+    predictOverall = float(Math.ceil(ovr + predictChange))
+
+    return predictChange, predictOverall
 
 # Feature 1 | Predict Current Season Stats
 def predictStats(dfStats, player=None):
     """
     Predict key stats for a player (dataframe from front-end) using the face stats models.
     Returns a json/dict of predicted stats.
-    """    # Tasks of predictions
+    """
+    # Tasks of predictions
     tasks = [
         predictPace,
         predictShooting,
@@ -129,53 +221,59 @@ def predictStats(dfStats, player=None):
                 results[task_name] = None
                 print(f"Error in {task_name}: {e}")
     # Change per 90 to normal stats where applicable
-    playing_time_min = dfStats['Playing Time_Min'].iloc[0]
-    playing_time_min = float(playing_time_min) if playing_time_min is not None else 0.0
-    results['predictedGoals'] = float(results.pop('predictG90')) * (playing_time_min / 90) if playing_time_min > 0 else 0.0
-    results['predictedAssists'] = float(results.pop('predictA90')) * (playing_time_min / 90) if playing_time_min > 0 else 0.0
-    results['predictedInterceptions'] = float(results.pop('predictInt90')) * (playing_time_min / 90) if playing_time_min > 0 else 0.0
-    results['predictedTackles'] = float(results.pop('predictTkl90')) * (playing_time_min / 90) if playing_time_min > 0 else 0.0
-    results['predictedKeyPasses'] = float(results.pop('predictKey90')) * (playing_time_min / 90) if playing_time_min > 0 else 0.0
+    try:
+        playing_time_min = dfStats['Playing Time_Min'].iloc[0]
+        playing_time_min = float(playing_time_min) if playing_time_min is not None else 0.0
+    except:
+        playing_time_min = 0.0
+    
+    # Safely pop and convert per-90 stats
+    g90 = results.pop('predictG90', None)
+    a90 = results.pop('predictA90', None)
+    int90 = results.pop('predictInt90', None)
+    tkl90 = results.pop('predictTkl90', None)
+    key90 = results.pop('predictKey90', None)
+    
+    results['predictedGoals'] = (float(g90) if g90 is not None else 0.0) * (playing_time_min / 90) if playing_time_min > 0 else 0.0
+    results['predictedAssists'] = (float(a90) if a90 is not None else 0.0) * (playing_time_min / 90) if playing_time_min > 0 else 0.0
+    results['predictedInterceptions'] = (float(int90) if int90 is not None else 0.0) * (playing_time_min / 90) if playing_time_min > 0 else 0.0
+    results['predictedTackles'] = (float(tkl90) if tkl90 is not None else 0.0) * (playing_time_min / 90) if playing_time_min > 0 else 0.0
+    results['predictedKeyPasses'] = (float(key90) if key90 is not None else 0.0) * (playing_time_min / 90) if playing_time_min > 0 else 0.0
+    results['predictedPotential'] = results.pop('predictPotential', 0.0)
+    results['predictedMinutes'] = results.pop('predictMin', 0.0)
 
    
-    # NEED TO CLEAN THIS CODE BELOW
+    # POST PREDICTION ADJUSTMENTS
 
-    # Rating Momentum Fix (if momentum is very high, give revert negatives)
-    momentum = dfStats['rating_momentum'].iloc[0]
-    momentum = float(momentum) if momentum is not None else 0.0
-    if momentum > 10:
-        if results['predictRatingChange'] < 0:
-            results['predictRatingChange'] = round((momentum) * .05)
-        # Fix predicted overall based off new rating change
-        overall_val = dfStats['overall'].iloc[0]
-        overall_val = float(overall_val) if overall_val is not None else 0.0
-        results['predictOverall'] = float(Math.ceil(overall_val + results['predictRatingChange']))
-        potential_val = dfStats['potential'].iloc[0]
-        results['predictedPotential'] = float(potential_val) if potential_val is not None else 0.0
-        return results
-
-
-    current_overall_val = dfStats['overall'].iloc[0]
-    current_overall_val = float(current_overall_val) if current_overall_val is not None else 0.0
-    current_overall = Math.ceil(current_overall_val)
-    rating_change = results['predictOverall'] - current_overall
-    if 0 < rating_change < 1:
-        results['predictOverall'] = float(current_overall + 1)
-        results['predictRatingChange'] = 1.0
-    elif -1 < rating_change < 0:
-        results['predictOverall'] = float(current_overall - 1)
-        results['predictRatingChange'] = -1.0
-    else:
-        results['predictRatingChange'] = round((float(rating_change)),0)
     
+    momentum = float(dfStats['rating_momentum'].iloc[0])
+    ratingChange = float(results.get('predictRatingChange')) # actual predicted
+    current_overall = float(Math.ceil(float(dfStats['overall'].iloc[0])))        
+    
+    if momentum > 10:
+        # Rating Momentum Fix (if momentum is very high, give revert negatives)
+        results['predictRatingChange'], results['predictOverall'] = FixMomentum(momentum, ratingChange, current_overall)
+    else:
+        # Else fix overall & change (rounding)
+        predicted_ovr = results.get('predictOverall', current_overall)
+        rating_change = (predicted_ovr) - current_overall # calculated using new - old
+        results['predictOverall'], results['predictRatingChange'] = FixOverall(current_overall, rating_change)
+    
+
+
      # value fix | high value players tend to drop crazy value w little rating change and not old
     player_value_eur = getattr(player, 'value_eur', None) if player else None
-    age_fifa_val = dfStats['age_fifa'].iloc[0]
-    age_fifa_val = int(age_fifa_val) if age_fifa_val is not None else 0
+    try:
+        age_fifa_val = dfStats['age_fifa'].iloc[0]
+        age_fifa_val = int(age_fifa_val) if age_fifa_val is not None else 0
+    except:
+        age_fifa_val = 0
+        
     if age_fifa_val < 30 and player_value_eur is not None and player_value_eur > 80000000:
-        if results['predictRatingChange'] is not None and results['predictRatingChange'] < 1:
-            results['predictValue'] = player_value_eur * (0.95 - (results['predictRatingChange'] * 0.02))
-        elif results['predictRatingChange'] is not None and results['predictRatingChange'] >= 1:
+        rating_chg = results.get('predictRatingChange')
+        if rating_chg is not None and rating_chg < 1:
+            results['predictValue'] = player_value_eur * (0.95 - (rating_chg * 0.02))
+        elif rating_chg is not None and rating_chg >= 1:
             results['predictValue'] = player_value_eur * 1.05
     
     return results
