@@ -96,10 +96,14 @@ def player_to_features(player: Player) -> pd.DataFrame:
         # Replace None with 0 for model compatibility
         features[model_col] = value if value is not None else 0.0
     
-    # Create DataFrame with features in correct order
+    # Create DataFrame with features in correct order (for model prediction)
     df = pd.DataFrame([features])
-    df = df[MODEL_FEATURES]  # Ensure correct column order
-    return df
+    df = df[MODEL_FEATURES]  # Only model features for prediction
+    # Add 'pos' as a separate column (not for model, but for downstream logic)
+    pos_val = getattr(player, 'pos', None) 
+    df_pos = df.copy()
+    df_pos['pos'] = pos_val
+    return df_pos
 
 def get_players_by_name(session: Session, name: str) -> List[Player]:
     """

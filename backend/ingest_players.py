@@ -44,6 +44,7 @@ def ingest_players(csv_path: str):
             
             # FIFA Attributes
             player_positions=str(row['player_positions']),
+            pos=str(row['pos']),
             overall=int(row['overall']),
             potential=int(row['potential']),
             value_eur=float(row['value_eur']) if pd.notna(row['value_eur']) else None,
@@ -145,5 +146,5 @@ def ingest_players(csv_path: str):
     print("✓ Data ingestion complete!")
 
 if __name__ == "__main__":
-    csv_path = "../data/clean/current_players_2425.csv"
+    csv_path = "data/clean/current_players_2425.csv"
     ingest_players(csv_path)

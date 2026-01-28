@@ -12,6 +12,7 @@ class PlayerBase(SQLModel):
     
     # FIFA Attributes
     player_positions: str
+    pos: str  # Main position (FW, MF, DF, etc)
     overall: int
     potential: int
     value_eur: Optional[float] = None
