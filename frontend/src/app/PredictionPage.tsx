@@ -9,31 +9,6 @@ const SEASONS = [
   "25/26", "26/27", "27/28", "28/29", "29/30", "30/31", "31/32", "32/33", "33/34"
 ];
 
-// Temp chart data
-const marketValueData = [
-  { season: '20/21', value: 500000 },
-  { season: '21/22', value: 1000000 },
-  { season: '22/23', value: 2000000 },
-  { season: '23/24', value: 3000000 },
-  { season: '24/25', value: 4000000 },
-];
-
-const ratingData = [
-  { season: '20/21', rating: 70, potential: 85 },
-  { season: '21/22', rating: 75, potential: 87 },
-  { season: '22/23', rating: 78, potential: 88 },
-  { season: '23/24', rating: 80, potential: 89 },
-  { season: '24/25', rating: 82, potential: 90 },
-];
-
-const goalsAssistsData = [
-  { season: '20/21', goals: 5, assists: 3 },
-  { season: '21/22', goals: 8, assists: 5 },
-  { season: '22/23', goals: 12, assists: 7 },
-  { season: '23/24', goals: 15, assists: 10 },
-  { season: '24/25', goals: 18, assists: 12 },
-];
-
 interface PlayerSuggestion {
   idPlayer: string;
   strPlayer: string;
@@ -129,10 +104,61 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
   const [position, setPosition] = useState<string | null>(null);
   const [club, setClub] = useState<string | null>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
-  const [predictedStatsLib, setPredictedStatsLib] = useState<any>(null);
+  const [predictedStatsLib, setPredictedStatsLib] = useState<any[]>(null);
   const [nationalityText, setNationalityText] = useState<string | null>(null);
   const [selectedPredictionSeason, setSelectedPredictionSeason] = useState("25/26");
+  
+  // Get current season's data based on selected tab (0-8 index for years 1-9)
+  const getCurrentSeasonData = () => {
+    if (!predictedStatsLib || !Array.isArray(predictedStatsLib)) return null;
+    const seasonIndex = SEASONS.indexOf(selectedPredictionSeason);
+    return predictedStatsLib[seasonIndex] || null;
+  };
+  
+  const currentSeasonData = getCurrentSeasonData();
   const [currentValue, setCurrentValue] = useState<number | null>(null);
+
+  /**
+   * Generate market value progression data from predictions
+   */
+  const getMarketValueData = () => {
+    if (!predictedStatsLib || !Array.isArray(predictedStatsLib)) return [];
+    
+    return predictedStatsLib.map((prediction, index) => ({
+      season: SEASONS[index],
+      value: prediction.predictValue || 0
+    }));
+  };
+
+  /**
+   * Generate rating/potential progression data from predictions
+   */
+  const getRatingData = () => {
+    if (!predictedStatsLib || !Array.isArray(predictedStatsLib)) return [];
+    
+    return predictedStatsLib.map((prediction, index) => ({
+      season: SEASONS[index],
+      rating: prediction.predictOverall || 0,
+      potential: prediction.predictedPotential || 0
+    }));
+  };
+
+  /**
+   * Generate goals & assists progression data from predictions
+   */
+  const getGoalsAssistsData = () => {
+    if (!predictedStatsLib || !Array.isArray(predictedStatsLib)) return [];
+    
+    return predictedStatsLib.map((prediction, index) => ({
+      season: SEASONS[index],
+      goals: Math.round(prediction.predictedGoals || 0),
+      assists: Math.round(prediction.predictedAssists || 0)
+    }));
+  };
+
+  const marketValueData = getMarketValueData();
+  const ratingData = getRatingData();
+  const goalsAssistsData = getGoalsAssistsData();
 
   /**
    * Fetch player suggestions from backend based on search query
@@ -344,7 +370,7 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
           }
           
           const predictionData = await response.json();
-          setPredictedStatsLib(predictionData.predicted_stats);
+          setPredictedStatsLib(predictionData.statsLibrary);
         } catch (error) {
           console.error("Error fetching predicted data:", error);
         }
@@ -547,17 +573,13 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
                   <h3 className="text-gray-400 text-[10px] sm:text-xs mb-1.5 sm:mb-2">Predicted Rating:</h3>
                   <div className="flex items-center justify-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
                     <span className="text-3xl sm:text-4xl md:text-5xl font-bold bg-gradient-to-r from-cyan-400 via-emerald-400 to-blue-500 bg-clip-text text-transparent">
-                      {predictedStatsLib?.predictOverall ? (
-                        <CountUp to={Number(predictedStatsLib.predictOverall.toFixed(0))} duration={1.0} />
-                      ) : (
-                        "--"
-                      )}
+                      {currentSeasonData?.predictOverall ? Number(currentSeasonData.predictOverall.toFixed(0)) : "--"}
                     </span>
-                    <div className={`flex items-center gap-1 ${predictedStatsLib?.predictRatingChange && predictedStatsLib.predictRatingChange < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-                      <span className="text-lg sm:text-xl md:text-2xl">{predictedStatsLib?.predictRatingChange && predictedStatsLib.predictRatingChange < 0 ? '↓' : '↑'}</span>
-                      <span className="text-base sm:text-lg md:text-xl font-semibold">
-                        {predictedStatsLib?.predictRatingChange ?
-                          (predictedStatsLib.predictRatingChange >= 0 ? '+' : '') + (predictedStatsLib.predictRatingChange)
+                    <div className={`flex items-center gap-1 ${currentSeasonData?.predictRatingChange && currentSeasonData.predictRatingChange < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                      <span className="text-lg sm:text-xl md:text-2xl">{currentSeasonData?.predictRatingChange && currentSeasonData.predictRatingChange < 0 ? '↓' : '↑'}</span>
+                      <span className="text-xs sm:text-sm md:text-base font-bold">
+                        {currentSeasonData?.predictRatingChange ?
+                          (currentSeasonData.predictRatingChange >= 0 ? '+' : '') + (currentSeasonData.predictRatingChange)
                           : "--"}
                       </span>
                     </div>
@@ -566,8 +588,8 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
                 <div className="text-center">
                   <h3 className="text-gray-400 text-[10px] sm:text-xs mb-1.5 sm:mb-2">Predicted Value:</h3>
                   <span className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-green-400 to-green-500 bg-clip-text text-transparent">
-                    {predictedStatsLib?.predictValue ? (
-                      `$${((predictedStatsLib.predictValue * 1.18) / 1000000).toFixed(1)}M`
+                    {currentSeasonData?.predictValue ? (
+                      `$${((currentSeasonData.predictValue * 1.18) / 1000000).toFixed(1)}M`
                     ) : (
                       "--"
                     )}
@@ -630,7 +652,7 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
                       <line x1="6.7" y1="25" x2="50" y2="0" stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" />
                     </svg>
                     {/* Hexagon polygon for stats */}
-                    {predictedStatsLib && (
+                    {currentSeasonData && (
                       <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100">
                         <defs>
                           <linearGradient id="radarGradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -651,12 +673,12 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
                           const centerY = 50;
                           const radius = 45;
                           const stats = [
-                            predictedStatsLib.predictPace || 0,
-                            predictedStatsLib.predictShooting || 0,
-                            predictedStatsLib.predictPassing || 0,
-                            predictedStatsLib.predictDribbling || 0,
-                            predictedStatsLib.predictDefending || 0,
-                            predictedStatsLib.predictPhysic || 0,
+                            currentSeasonData.predictPace || 0,
+                            currentSeasonData.predictShooting || 0,
+                            currentSeasonData.predictPassing || 0,
+                            currentSeasonData.predictDribbling || 0,
+                            currentSeasonData.predictDefending || 0,
+                            currentSeasonData.predictPhysic || 0,
                           ];
                           const angles = Array.from({length: 6}, (_, i) => -90 + i * 60);
                           const normStats = stats.map(s => Math.max(0, Math.min(1, s / 99)));
@@ -696,27 +718,27 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
                     {/* Stat Labels with values - responsive positioning */}
                     <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-6 sm:-translate-y-7 md:-translate-y-6 lg:-translate-y-6 xl:-translate-y-7 text-center">
                       <div className="text-emerald-400 text-[9px] sm:text-[10px] md:text-[10px] lg:text-[10px] xl:text-xs font-bold tracking-wider">PAC</div>
-                      <div className="text-white text-xs sm:text-sm md:text-sm lg:text-sm font-semibold">{predictedStatsLib?.predictPace ? Math.ceil(predictedStatsLib.predictPace) : "--"}</div>
+                      <div className="text-white text-xs sm:text-sm md:text-sm lg:text-sm font-semibold">{currentSeasonData?.predictPace ? Math.ceil(currentSeasonData.predictPace) : "--"}</div>
                     </div>
                     <div className="absolute top-[12%] right-0 translate-x-4 sm:translate-x-5 md:translate-x-5 lg:translate-x-5 xl:translate-x-6 text-center">
                       <div className="text-blue-400 text-[9px] sm:text-[10px] md:text-[10px] lg:text-[10px] xl:text-xs font-bold tracking-wider">SHO</div>
-                      <div className="text-white text-xs sm:text-sm md:text-sm lg:text-sm font-semibold">{predictedStatsLib?.predictShooting ? Math.ceil(predictedStatsLib.predictShooting) : "--"}</div>
+                      <div className="text-white text-xs sm:text-sm md:text-sm lg:text-sm font-semibold">{currentSeasonData?.predictShooting ? Math.ceil(currentSeasonData.predictShooting) : "--"}</div>
                     </div>
                     <div className="absolute bottom-[12%] right-0 translate-x-4 sm:translate-x-5 md:translate-x-5 lg:translate-x-5 xl:translate-x-6 text-center">
                       <div className="text-yellow-400 text-[9px] sm:text-[10px] md:text-[10px] lg:text-[10px] xl:text-xs font-bold tracking-wider">PAS</div>
-                      <div className="text-white text-xs sm:text-sm md:text-sm lg:text-sm font-semibold">{predictedStatsLib?.predictPassing ? Math.ceil(predictedStatsLib.predictPassing) : "--"}</div>
+                      <div className="text-white text-xs sm:text-sm md:text-sm lg:text-sm font-semibold">{currentSeasonData?.predictPassing ? Math.ceil(currentSeasonData.predictPassing) : "--"}</div>
                     </div>
                     <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-6 sm:translate-y-7 md:translate-y-6 lg:translate-y-6 xl:translate-y-7 text-center">
                       <div className="text-purple-400 text-[9px] sm:text-[10px] md:text-[10px] lg:text-[10px] xl:text-xs font-bold tracking-wider">DRI</div>
-                      <div className="text-white text-xs sm:text-sm md:text-sm lg:text-sm font-semibold">{predictedStatsLib?.predictDribbling ? Math.ceil(predictedStatsLib.predictDribbling) : "--"}</div>
+                      <div className="text-white text-xs sm:text-sm md:text-sm lg:text-sm font-semibold">{currentSeasonData?.predictDribbling ? Math.ceil(currentSeasonData.predictDribbling) : "--"}</div>
                     </div>
                     <div className="absolute bottom-[12%] left-0 -translate-x-4 sm:-translate-x-5 md:-translate-x-5 lg:-translate-x-5 xl:-translate-x-6 text-center">
                       <div className="text-red-400 text-[9px] sm:text-[10px] md:text-[10px] lg:text-[10px] xl:text-xs font-bold tracking-wider">DEF</div>
-                      <div className="text-white text-xs sm:text-sm md:text-sm lg:text-sm font-semibold">{predictedStatsLib?.predictDefending ? Math.ceil(predictedStatsLib.predictDefending) : "--"}</div>
+                      <div className="text-white text-xs sm:text-sm md:text-sm lg:text-sm font-semibold">{currentSeasonData?.predictDefending ? Math.ceil(currentSeasonData.predictDefending) : "--"}</div>
                     </div>
                     <div className="absolute top-[12%] left-0 -translate-x-4 sm:-translate-x-5 md:-translate-x-5 lg:-translate-x-5 xl:-translate-x-6 text-center">
                       <div className="text-orange-400 text-[9px] sm:text-[10px] md:text-[10px] lg:text-[10px] xl:text-xs font-bold tracking-wider">PHY</div>
-                      <div className="text-white text-xs sm:text-sm md:text-sm lg:text-sm font-semibold">{predictedStatsLib?.predictPhysic ? Math.ceil(predictedStatsLib.predictPhysic) : "--"}</div>
+                      <div className="text-white text-xs sm:text-sm md:text-sm lg:text-sm font-semibold">{currentSeasonData?.predictPhysic ? Math.ceil(currentSeasonData.predictPhysic) : "--"}</div>
                     </div>
                     {/* Center circle with glow */}
                     <div className="absolute inset-[40%] bg-gradient-to-br from-emerald-500/30 to-emerald-600/20 rounded-full border border-emerald-400/50 shadow-lg shadow-emerald-500/20" />
@@ -734,29 +756,29 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
                     <div className="flex flex-col items-center p-1 sm:p-1.5 md:p-1.5 lg:p-1.5 xl:p-2 rounded-lg">
                       <span className="text-gray-400 text-[10px] sm:text-xs md:text-xs lg:text-xs xl:text-sm uppercase tracking-wider mb-0.5">Goals</span>
                       <span className="text-blue-400 text-xl sm:text-2xl md:text-2xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold">
-                        {predictedStatsLib?.predictedGoals ? Math.ceil(predictedStatsLib.predictedGoals) : "--"}
+                        {currentSeasonData?.predictedGoals ? Math.ceil(currentSeasonData.predictedGoals) : "--"}
                       </span>
                     </div>
                     {/* Assists */}
                     <div className="flex flex-col items-center p-1 sm:p-1.5 md:p-1.5 lg:p-1.5 xl:p-2 rounded-lg">
                       <span className="text-gray-400 text-[10px] sm:text-xs md:text-xs lg:text-xs xl:text-sm uppercase tracking-wider mb-0.5">Assists</span>
                       <span className="text-yellow-400 text-xl sm:text-2xl md:text-2xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold">
-                        {predictedStatsLib?.predictedAssists ? Math.ceil(predictedStatsLib.predictedAssists) : "--"}
+                        {currentSeasonData?.predictedAssists ? Math.ceil(currentSeasonData.predictedAssists) : "--"}
                       </span>
                     </div>
                     {/* Defensive Contributions */}
                     <div className="flex flex-col items-center p-1 sm:p-1.5 md:p-1.5 lg:p-1.5 xl:p-2 pb-0 rounded-lg">
                       <span className="text-gray-400 text-[10px] sm:text-xs md:text-xs lg:text-xs xl:text-sm uppercase tracking-wider mb-0.5 text-center">Def Contrib.</span>
                       <span className="text-red-400 text-xl sm:text-2xl md:text-2xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold">
-                        {predictedStatsLib?.predictedInterceptions && predictedStatsLib?.predictedTackles ?
-                          Math.ceil(predictedStatsLib.predictedInterceptions + predictedStatsLib.predictedTackles) : "--"}
+                        {currentSeasonData?.predictedInterceptions && currentSeasonData?.predictedTackles ?
+                          Math.ceil(currentSeasonData.predictedInterceptions + currentSeasonData.predictedTackles) : "--"}
                       </span>
                     </div>
                     {/* Key Passes */}
                     <div className="flex flex-col items-center p-1 sm:p-1.5 md:p-1.5 lg:p-1.5 xl:p-2 pb-0 rounded-lg">
                       <span className="text-gray-400 text-[10px] sm:text-xs md:text-xs lg:text-xs xl:text-sm uppercase tracking-wider mb-0.5">Key Passes</span>
                       <span className="text-purple-400 text-xl sm:text-2xl md:text-2xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold">
-                        {predictedStatsLib?.predictedKeyPasses ? Math.ceil(predictedStatsLib.predictedKeyPasses) : "--"}
+                        {currentSeasonData?.predictedKeyPasses ? Math.ceil(currentSeasonData.predictedKeyPasses) : "--"}
                       </span>
                     </div>
                   </div>

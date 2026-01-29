@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from sqlmodel import Session, select
 from typing import List
-from predictor import predictStats
+from predictor import predictNineYears, predictStats
 from model_utils import get_players_by_name, get_player_by_id, player_to_features, get_players_by_name
 
 from database import create_db_and_tables, get_session
@@ -56,10 +56,10 @@ def predictPlayer(playerID: int, session: Session = Depends(get_session)):
         # Convert to model features
         features = player_to_features(player)
         # Make predictions
-        predicted_stats = predictStats(features, player)
+        statsLibrary = predictNineYears(features, player)
         return {
             "player": player,
-            "predicted_stats": predicted_stats
+            "statsLibrary": statsLibrary
         }
     except Exception as e:
         return {"error": f"Prediction failed: {str(e)}"}

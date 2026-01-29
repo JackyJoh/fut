@@ -183,82 +183,294 @@ def FixMomentum(momentum, ratingChange, ovr):
 def FixValue(age, valueEur, ratingChange, predictedVal):
     valDif = predictedVal - valueEur
 
-    # handle improper increase/decrease
+    # Handle value adjustments based on rating change
     try:
-        if (ratingChange <= 1 and valDif > 0):
-            safe_rating_change = abs(ratingChange)
-            predictedVal = valueEur - (math.sqrt(safe_rating_change) * (.11 * valueEur))
-        elif (ratingChange >= 1 and valDif):
+        # Rating increased significantly: value should increase
+        if ratingChange >= 1:
             safe_rating_change = ratingChange if ratingChange >= 0 else 0
-            predictedVal = valueEur + (math.sqrt(safe_rating_change) * (.11 * valueEur))
+            
+            # Diminishing returns based on current value
+            # Higher values grow slower (percentage-wise)
+            if valueEur > 150_000_000:  # Over €150M
+                growth_multiplier = 0.06
+            elif valueEur > 100_000_000:  # €100M - €150M
+                growth_multiplier = 0.08
+            elif valueEur > 50_000_000:  # €50M - €100M
+                growth_multiplier = 0.10
+            else:  # Under €50M
+                growth_multiplier = 0.12
+            
+            predictedVal = valueEur + (math.sqrt(safe_rating_change) * (growth_multiplier * valueEur))
+        # Rating decreased: apply gentle penalty
+        elif ratingChange <= -1:
+            safe_rating_change = abs(ratingChange)
+            # Elite players (>€80M) lose value slower (3%), others lose 5%
+            decline_rate = 0.03 if valueEur > 80_000_000 else 0.05
+            predictedVal = valueEur - (math.sqrt(safe_rating_change) * (decline_rate * valueEur))
+        # Minor rating changes: use model prediction with smoothing
+        elif -1 < ratingChange < 1:
+            # Blend 70% model, 30% current value for stability
+            predictedVal = (predictedVal * 0.7) + (valueEur * 0.3)
     except Exception as e:
         print(f"FixValue math error: {e}")
         predictedVal = valueEur
 
-    # Age fixing | start decreasing mv 29/30
-    age_threshold = 30
-    k = 0.05  # gentler exponential decay
-    min_factor = 0.7  # don't let value drop below 50%
-    if age >= age_threshold:
-        age_factor = math.exp(-k * (age - age_threshold))
-        age_factor = max(age_factor, min_factor)
+    # Age fixing | aggressive depreciation for older high-value players
+    if age >= 33 and predictedVal > 20_000_000:
+        # 33+: aggressive decay for expensive players (12% per year)
+        years_past_33 = age - 33
+        age_factor = math.pow(0.91, years_past_33)
         predictedVal = predictedVal * age_factor
+    elif age >= 30 and predictedVal > 10_000_000:
+        # 30-32: moderate decay for valuable players (5% per year)
+        years_past_30 = age - 30
+        age_factor = math.pow(0.92, years_past_30)
+        predictedVal = predictedVal * age_factor
+    
+    # Absolute floor: no player below €500k
+    predictedVal = max(predictedVal, 500_000)
     
     return predictedVal
 
 def FixAttributes(results, position):
-    # Needs to look more natural
     """
-    Adjusts FIFA face stats in the results dict so at least 2 are close to overall.
-    Prioritizes relevant attributes for the player's main position (FW, MF, DF).
-    Expects: results (dict), position (str)
-    Returns updated results dict.
+    Adjusts FIFA face stats to ensure at least 2 are close to overall rating.
+    - If 0 stats at/above OVR: boosts 2 closest stats with exponential scaling
+    - If 1 stat at/above OVR: distributes gap from next closest to ALL stats (2x priority to closest)
+    - If 2+ stats at/above OVR: no adjustment needed
     """
     stats = ['physic', 'defending', 'dribbling', 'passing', 'shooting', 'pace']
+    
     try:
         ovr = results.get('predictOverall')
         if ovr is None or not isinstance(ovr, (int, float)):
-            print(f"FixAttributes: Missing or invalid predictOverall in results: {ovr}")
+            print(f"FixAttributes: Invalid predictOverall: {ovr}")
             return results
-        pos = str(position).split(',')[0].strip().upper() if position else ''
-        if pos == 'FW':
-            priorities = ['shooting', 'pace', 'dribbling']
-        elif pos == 'MF':
-            priorities = ['passing', 'dribbling', 'defending']
-        elif pos == 'DF':
-            priorities = ['defending', 'physic', 'pace']
-        else:
-            priorities = stats
-        # Find which stats are within 2 of ovr
-        close_stats = []
+        
+        ovr = float(ovr)
+        
+        # Collect current stat values and count how many are at/above OVR
+        stat_values = {}
+        at_or_above_count = 0
         for s in stats:
             val = results.get(f'predict{s.capitalize()}')
-            try:
-                if val is not None and isinstance(val, (int, float)) and abs(val - ovr) <= 2:
-                    close_stats.append(s)
-            except Exception as e:
-                print(f"FixAttributes: Error comparing {s}: {e}")
-        # Always update at least 2 stats if needed
-        stats_to_update = []
-        for s in priorities:
-            val = results.get(f'predict{s.capitalize()}')
-            try:
-                if val is None or not isinstance(val, (int, float)) or abs(val - ovr) > 2:
-                    stats_to_update.append(s)
-            except Exception as e:
-                print(f"FixAttributes: Error checking update for {s}: {e}")
-        updated = 0
-        for stat in stats_to_update:
-            try:
-                if updated < 2:
-                    results[f'predict{stat.capitalize()}'] = ovr
-                    updated += 1
-            except Exception as e:
-                print(f"FixAttributes: Error updating {stat}: {e}")
+            if val is not None and isinstance(val, (int, float)):
+                stat_values[s] = float(val)
+                if val >= ovr:
+                    at_or_above_count += 1
+            else:
+                stat_values[s] = ovr
+        
+        # Exit early if 2+ stats already at/above OVR
+        if at_or_above_count >= 2:
+            return results
+        
+        # Calculate gaps for stats below OVR
+        gaps = {s: max(0, ovr - stat_values[s]) for s in stats}
+        stats_with_gaps = [(s, gaps[s]) for s in stats if gaps[s] > 0]
+        stats_with_gaps.sort(key=lambda x: x[1])  # Sort by gap (smallest first)
+        
+        if not stats_with_gaps:
+            return results
+        
+        # Calculate points to distribute based on scenario
+        if at_or_above_count == 1:
+            # 1 stat already at OVR: distribute gap from next closest to ALL stats
+            # Priority given to the next closest stat
+            top_stats = [stats_with_gaps[0][0]]
+            total_points = math.ceil(gaps[top_stats[0]])
+        else:
+            # 0 stats at OVR: boost 2 closest with exponential scaling
+            if len(stats_with_gaps) < 2:
+                return results
+            
+            top_stats = [s[0] for s in stats_with_gaps[:2]]
+            gap_sum = gaps[top_stats[0]] + gaps[top_stats[1]]
+            
+            # Apply exponential boost when average gap is large
+            avg_gap = sum(gaps.values()) / len([g for g in gaps.values() if g > 0])
+            boost_factor = 1 + (math.pow(avg_gap / 8, 1.3) * 0.2)
+            
+            total_points = math.ceil(gap_sum * 0.7 * boost_factor)
+        
+        # Distribute points: priority stats get 2pts/iteration, others get 1pt
+        remaining_points = total_points
+        priority_stats = list(top_stats)
+        other_stats = [s for s in stats if s not in top_stats]
+        
+        while remaining_points > 0:
+            points_distributed = 0
+            
+            # Priority stats get 2 points (lose priority once they reach OVR)
+            for stat in priority_stats[:]:
+                if remaining_points > 0:
+                    points_added = min(2, remaining_points)
+                    stat_values[stat] += points_added
+                    remaining_points -= points_added
+                    points_distributed += points_added
+                    
+                    # Remove from priority if it reached OVR
+                    if stat_values[stat] >= ovr:
+                        priority_stats.remove(stat)
+                        if stat not in other_stats:
+                            other_stats.append(stat)
+            
+            # Other stats get 1 point
+            for stat in other_stats:
+                if remaining_points > 0:
+                    points_added = min(1, remaining_points)
+                    stat_values[stat] += points_added
+                    remaining_points -= points_added
+                    points_distributed += points_added
+            
+            if points_distributed == 0:
+                break
+        
+        # Update results with rounded values
+        for s in stats:
+            results[f'predict{s.capitalize()}'] = round(stat_values[s])
+        
         return results
+        
     except Exception as e:
-        print(f"FixAttributes: Unexpected error: {e}")
+        print(f"FixAttributes error: {e}")
         return results
+
+def resultsToNextSeasonDf(currentDf, results):
+    """
+    Converts prediction results into a dataframe for the next season.
+    Updates all features needed for recursive predictions.
+    """
+    nextDf = currentDf.copy()
+    
+    # 1. Update lag features (shift current values to lag)
+    nextDf['overall_lag1'] = currentDf['overall']
+    nextDf['age_lag1'] = currentDf['age_fifa']
+    nextDf['Playing Time_Min_lag1'] = currentDf['Playing Time_Min']
+    nextDf['Per 90 Minutes_Gls_lag1'] = currentDf['Per 90 Minutes_Gls']
+    nextDf['Per 90 Minutes_Ast_lag1'] = currentDf['Per 90 Minutes_Ast']
+    nextDf['Per 90 Minutes_G+A_lag1'] = currentDf['Per 90 Minutes_G+A']
+    nextDf['Per 90 Minutes_xG_lag1'] = currentDf['Per 90 Minutes_xG']
+    nextDf['value_eur_lag1'] = currentDf['value_eur'] if 'value_eur' in currentDf.columns else results.get('predictValue', 0)
+    
+    # 2. Map predictions to input columns
+    nextDf['pace'] = results.get('predictPace', currentDf['pace'].iloc[0])
+    nextDf['shooting'] = results.get('predictShooting', currentDf['shooting'].iloc[0])
+    nextDf['passing'] = results.get('predictPassing', currentDf['passing'].iloc[0])
+    nextDf['dribbling'] = results.get('predictDribbling', currentDf['dribbling'].iloc[0])
+    nextDf['defending'] = results.get('predictDefending', currentDf['defending'].iloc[0])
+    nextDf['physic'] = results.get('predictPhysic', currentDf['physic'].iloc[0])
+    nextDf['overall'] = results.get('predictOverall', currentDf['overall'].iloc[0])
+    
+    # For young players below their original potential, maintain it; otherwise use predicted
+    age = currentDf['age_fifa'].iloc[0]
+    current_overall = results.get('predictOverall', currentDf['overall'].iloc[0])
+    original_potential = currentDf.get('original_potential', currentDf['potential'].iloc[0])
+    if isinstance(original_potential, pd.Series):
+        original_potential = original_potential.iloc[0]
+    
+    if age <= 25 and current_overall < original_potential:
+        nextDf['potential'] = original_potential
+    else:
+        # Use max of predicted and current overall to prevent potential dropping below overall
+        predicted_pot = results.get('predictedPotential', currentDf['potential'].iloc[0])
+        nextDf['potential'] = max(predicted_pot, current_overall)
+    
+    # Preserve original_potential for next iteration
+    nextDf['original_potential'] = original_potential
+    
+    nextDf['value_eur'] = results.get('predictValue', currentDf['value_eur'].iloc[0] if 'value_eur' in currentDf.columns else 0)
+    
+    # 3. Keep database minutes constant across all predictions (don't use predicted minutes)
+    databaseMinutes = currentDf['Playing Time_Min'].iloc[0]
+    nextDf['Playing Time_Min'] = databaseMinutes
+    nextDf['Playing Time_90s'] = databaseMinutes / 90 if databaseMinutes > 0 else 0
+    
+    # Use database minutes to calculate per-90 stats from predicted totals
+    if databaseMinutes > 0:
+        nextDf['Per 90 Minutes_Gls'] = (results.get('predictedGoals', 0) / databaseMinutes) * 90
+        nextDf['Per 90 Minutes_Ast'] = (results.get('predictedAssists', 0) / databaseMinutes) * 90
+        nextDf['Per 90 Minutes_G+A'] = nextDf['Per 90 Minutes_Gls'] + nextDf['Per 90 Minutes_Ast']
+        nextDf['Per 90 Minutes_Tackles_Tkl'] = (results.get('predictedTackles', 0) / databaseMinutes) * 90
+        nextDf['Per 90 Minutes_Int'] = (results.get('predictedInterceptions', 0) / databaseMinutes) * 90
+        nextDf['Per 90 Minutes_KP'] = (results.get('predictedKeyPasses', 0) / databaseMinutes) * 90
+    else:
+        nextDf['Per 90 Minutes_Gls'] = 0
+        nextDf['Per 90 Minutes_Ast'] = 0
+        nextDf['Per 90 Minutes_G+A'] = 0
+        nextDf['Per 90 Minutes_Tackles_Tkl'] = 0
+        nextDf['Per 90 Minutes_Int'] = 0
+        nextDf['Per 90 Minutes_KP'] = 0
+    
+    # 4. Increment age
+    nextDf['age_fifa'] = currentDf['age_fifa'].iloc[0] + 1
+    
+    # 5. Recalculate derived features
+    age = nextDf['age_fifa'].iloc[0]
+    nextDf['age_squared'] = age ** 2
+    nextDf['is_youth'] = 1 if age < 23 else 0
+    nextDf['is_prime'] = 1 if 23 <= age <= 29 else 0
+    nextDf['is_veteran'] = 1 if age > 29 else 0
+    
+    ovr = nextDf['overall'].iloc[0]
+    nextDf['is_elite'] = 1 if ovr >= 85 else 0
+    nextDf['is_good'] = 1 if 75 <= ovr < 85 else 0
+    nextDf['is_average'] = 1 if ovr < 75 else 0
+    
+    # 6. Calculate momentum and trends
+    ratingChange = results.get('predictRatingChange', 0)
+    # Accumulate momentum with decay
+    currentMomentum = currentDf['rating_momentum'].iloc[0] if 'rating_momentum' in currentDf.columns else 0
+    # Apply 0.7 decay (30% fade per year)
+    decayedMomentum = currentMomentum * 0.7
+    newMomentum = decayedMomentum + ratingChange
+    # Light cap between -10 and +10
+    nextDf['rating_momentum'] = max(-10, min(10, newMomentum))
+    
+    # Goals trend: difference between current and lag
+    nextDf['goals_trend'] = nextDf['Per 90 Minutes_Gls'].iloc[0] - nextDf['Per 90 Minutes_Gls_lag1'].iloc[0]
+    
+    # Minutes trend: difference between current and lag
+    nextDf['minutes_trend'] = nextDf['Playing Time_Min'].iloc[0] - nextDf['Playing Time_Min_lag1'].iloc[0]
+    
+    # goals vs xG
+    if 'Per 90 Minutes_xG' in nextDf.columns:
+        nextDf['goals_vs_xG'] = nextDf['Per 90 Minutes_Gls'] - nextDf['Per 90 Minutes_xG']
+    else:
+        nextDf['goals_vs_xG'] = 0
+    
+    # Has prior season is now always True
+    nextDf['has_prior_season'] = 1
+    
+    # Keep wage/value zscore and percentile (or recalculate if you have the logic)
+    # For now, maintain existing values as they require full dataset context
+    
+    return nextDf
+
+def predictNineYears(dfStats, player=None):
+    """
+    Predict 9 years of player progression recursively.
+    Returns a list of prediction results, one for each year.
+    """
+    allPredictions = []
+    currentDf = dfStats.copy()
+    
+    # Store original potential for youth protection
+    original_potential = float(dfStats['potential'].iloc[0])
+    currentDf['original_potential'] = original_potential
+    
+    for year in range(9):
+        # Predict current season
+        results = predictStats(currentDf, player)
+        results['year'] = year + 1  # Year 1-9
+        allPredictions.append(results)
+        
+        # Prepare dataframe for next season (unless it's the last year)
+        if year < 8:
+            currentDf = resultsToNextSeasonDf(currentDf, results)
+    
+    return allPredictions
+
 
 # Feature 1 | Predict Current Season Stats
 def predictStats(dfStats, player=None):
@@ -357,15 +569,15 @@ def predictStats(dfStats, player=None):
         results['predictOverall'], results['predictRatingChange'] = FixOverall(current_overall, rating_change)
     
      # value fix | For old players and improper increase/decrease
-    player_value_eur = getattr(player, 'value_eur', None) if player else None
+    # Use value from dataframe (which gets updated each year) instead of player object
+    player_value_eur = dfStats['value_eur'].iloc[0] if 'value_eur' in dfStats.columns else (getattr(player, 'value_eur', None) if player else None)
     age_fifa_val = int(dfStats['age_fifa'].iloc[0])
     predictedValueEur = int(results.get('predictValue'))
     results['predictValue'] = FixValue(age_fifa_val, player_value_eur, results['predictRatingChange'], predictedValueEur)
 
     # Attribute fix | update dfStats with fixed attributes after predictions
-    # FIX FUNCTION
     position = dfStats['pos'].iloc[0]
-    #results = FixAttributes(results, position)
+    results = FixAttributes(results, position)
     
     
     return results
