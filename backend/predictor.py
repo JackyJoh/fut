@@ -156,16 +156,133 @@ def predictKey90(df_features) -> float:
 
 # Adjustment functions
 # Overall and change fix | rounding/matching
-def FixOverall(current, change):
-    if 0 < change < 1:
-        predictOverall = float(current + 1)
-        predictChange = 1.0
-    elif -1 < change < 0:
-        predictOverall = float(current - 1)
-        predictChange = -1.0
-    else:
-        predictOverall = float(current + round(float(change), 0))
-        predictChange = round(float(change),0)
+def FixOverall(current, change, age=None, potential=None):
+    # Youth/prime players (under 30): Use smart growth logic
+    if age is not None and potential is not None and age < 30:
+        gap_to_potential = potential - current
+        
+        # Far below potential (5+) - boost aggressively
+        if gap_to_potential >= 5:
+            # Use ML prediction but ensure minimum +2 growth
+            if change < 2:
+                change = max(2, min(4, gap_to_potential * 0.5))
+            # Cap max growth at 4
+            change = min(change, 4)
+        
+        # Medium gap (3-4) - strong growth bias
+        elif gap_to_potential >= 3:
+            # Use ML prediction but ensure minimum +1 growth
+            if change < 1:
+                change = max(1, min(3, gap_to_potential * 0.6))
+            # Cap max growth at 3
+            change = min(change, 3)
+        
+        # Close to potential (1-2 below) - allow ML model with floor
+        elif gap_to_potential >= 1:
+            # Use ML prediction but prevent decline
+            if change < 0:
+                change = max(0, min(2, gap_to_potential))
+            # Allow natural variance but cap at reaching potential
+            change = min(change, gap_to_potential + 1)
+        
+        # At potential (0) or above - allow natural variance and growth beyond potential
+        else:
+            # Use ML prediction with light dampening on extremes
+            # Prime age players (under 28) - natural variance around potential
+            if age < 28:
+                # If at exact potential - allow natural ML predictions
+                if current == potential:
+                    if change <= -2:
+                        change = -1  # Dampen extreme drops
+                    elif change >= 3:
+                        change = 2  # Cap extreme growth
+                # If 1 below potential
+                elif current == potential - 1:
+                    if change <= -2:
+                        change = -1  # Dampen big drops
+                    elif change >= 3:
+                        change = 2  # Cap growth
+                # If 2 below potential
+                elif current == potential - 2:
+                    if change <= -2:
+                        change = -1  # Dampen drops
+                    elif change >= 3:
+                        change = 2  # Cap growth
+                # Above potential - allow it but cap extreme growth
+                elif current > potential:
+                    if change >= 2:
+                        change = 1  # Cap growth when already above potential
+                    elif change <= -2:
+                        change = -1  # Dampen drops
+            # Late prime (28-29) - allow more natural variance
+            else:
+                # More natural variance, less interference
+                if change >= 3:
+                    change = 2
+                elif change <= -3:
+                    change = -2
+    
+    # Veterans (30-34): Natural aging with decline bias
+    elif age is not None and 30 <= age < 35:
+        # Elite players (85+) can maintain form better
+        is_elite_veteran = current >= 85
+        
+        if is_elite_veteran:
+            # Elite veterans: use ML with light bias, allow some improvement
+            if change >= 2:
+                change = 1  # Allow +1 growth (exceptional season)
+            elif change >= 0.5:
+                change = 1  # Moderate positive becomes +1
+            elif change >= 0.1:
+                change = 0  # Small positive becomes stability
+            elif change >= -0.2:
+                change = -1  # Near-zero biased to decline
+            elif change <= -3:
+                change = -2  # Cap decline at -2 per year
+            # else: use ML prediction (-2 range)
+        else:
+            # Regular veterans: more decline bias but still allow improvement
+            if change >= 2:
+                change = 1  # Allow +1 growth (good season)
+            elif change >= 0.7:
+                change = 1  # Good positive becomes +1
+            elif change >= 0.2:
+                change = 0  # Small positive becomes stability
+            elif change >= -0.2:
+                change = -1  # Near-zero biased to decline
+            elif change <= -3:
+                change = -2  # Cap extreme decline at -2 per year
+            # else: use ML prediction (-2 range)
+    
+    # Very old players (35+): Natural aging with stronger decline bias
+    elif age is not None and age >= 35:
+        # Elite players (85+) decline more naturally
+        is_elite_old = current >= 85
+        
+        if is_elite_old:
+            # Elite old players: use ML with decline bias
+            if change >= 2:
+                change = 0  # Dampen growth to stability
+            elif change > 0:
+                change = -1  # Convert gains to decline
+            elif change > -0.5:
+                change = -1  # Bias near-zero to decline
+            elif change <= -4:
+                change = -2  # Cap decline at -2 per year
+            # else: use ML prediction (-2 to -1 range)
+        else:
+            # Regular old players: faster decline
+            if change >= 1:
+                change = -1  # Convert gains to decline
+            elif change > -0.5:
+                change = -1  # Force decline for near-zero
+            elif change <= -4:
+                change = -3  # Cap at -3 per year
+            # else: use ML prediction (-3 to -1 range)
+    
+    # Round the change and calculate new overall
+    predictChange = round(float(change), 0)
+    predictOverall = float(current + predictChange)
     
     return predictOverall, predictChange
 
@@ -180,7 +297,7 @@ def FixMomentum(momentum, ratingChange, ovr):
 
     return predictChange, predictOverall
 
-def FixValue(age, valueEur, ratingChange, predictedVal):
+def FixValue(age, valueEur, ratingChange, predictedVal, overall=75):
     valDif = predictedVal - valueEur
 
     # Handle value adjustments based on rating change
@@ -215,8 +332,34 @@ def FixValue(age, valueEur, ratingChange, predictedVal):
         print(f"FixValue math error: {e}")
         predictedVal = valueEur
 
+    # Calculate expected minimum value based on overall rating
+    # This serves as a baseline to detect undervalued young players
+    expected_value = 0
+    if overall >= 85:
+        expected_value = 60_000_000
+    elif overall >= 82:
+        expected_value = 25_000_000
+    elif overall >= 80:
+        expected_value = 12_000_000
+    elif overall >= 78:
+        expected_value = 6_000_000
+    elif overall >= 75:
+        expected_value = 3_000_000
+    
     # Age fixing | aggressive depreciation for older high-value players
-    if age >= 33 and predictedVal > 20_000_000:
+    # AND value boost ONLY for undervalued young elite players
+    if age <= 23 and predictedVal > 5_000_000 and predictedVal < expected_value * 0.7:
+        # Only boost if predicted value is less than 70% of expected (undervalued)
+        # Young elite players should be worth more due to potential
+        youth_premium = 1.0
+        if age <= 20:
+            youth_premium = 1.25  # 25% premium for 18-20 year olds
+        elif age <= 22:
+            youth_premium = 1.18  # 18% premium for 21-22 year olds
+        else:  # age 23
+            youth_premium = 1.12  # 12% premium for 23 year olds
+        predictedVal = predictedVal * youth_premium
+    elif age >= 33 and predictedVal > 20_000_000:
         # 33+: aggressive decay for expensive players (12% per year)
         years_past_33 = age - 33
         age_factor = math.pow(0.91, years_past_33)
@@ -230,7 +373,7 @@ def FixValue(age, valueEur, ratingChange, predictedVal):
     # Absolute floor: no player below €500k
     predictedVal = max(predictedVal, 500_000)
     
-    return predictedVal
+    return predictedVal 
 
 def FixAttributes(results, position):
     """
@@ -362,19 +505,15 @@ def resultsToNextSeasonDf(currentDf, results):
     nextDf['physic'] = results.get('predictPhysic', currentDf['physic'].iloc[0])
     nextDf['overall'] = results.get('predictOverall', currentDf['overall'].iloc[0])
     
-    # For young players below their original potential, maintain it; otherwise use predicted
+    # ALWAYS preserve original potential from year 0
     age = currentDf['age_fifa'].iloc[0]
     current_overall = results.get('predictOverall', currentDf['overall'].iloc[0])
     original_potential = currentDf.get('original_potential', currentDf['potential'].iloc[0])
     if isinstance(original_potential, pd.Series):
         original_potential = original_potential.iloc[0]
     
-    if age <= 25 and current_overall < original_potential:
-        nextDf['potential'] = original_potential
-    else:
-        # Use max of predicted and current overall to prevent potential dropping below overall
-        predicted_pot = results.get('predictedPotential', currentDf['potential'].iloc[0])
-        nextDf['potential'] = max(predicted_pot, current_overall)
+    # Never update potential - always use original from year 0
+    nextDf['potential'] = original_potential
     
     # Preserve original_potential for next iteration
     nextDf['original_potential'] = original_potential
@@ -426,6 +565,9 @@ def resultsToNextSeasonDf(currentDf, results):
     newMomentum = decayedMomentum + ratingChange
     # Light cap between -10 and +10
     nextDf['rating_momentum'] = max(-10, min(10, newMomentum))
+    
+    # Track last rating change to detect oscillation patterns
+    nextDf['last_rating_change'] = ratingChange
     
     # Goals trend: difference between current and lag
     nextDf['goals_trend'] = nextDf['Per 90 Minutes_Gls'].iloc[0] - nextDf['Per 90 Minutes_Gls_lag1'].iloc[0]
@@ -544,8 +686,82 @@ def predictStats(dfStats, player=None):
     tkl90 = results.pop('predictTkl90', None)
     key90 = results.pop('predictKey90', None)
     
-    results['predictedGoals'] = (float(g90) if g90 is not None else 0.0) * (playing_time_min / 90) if playing_time_min > 0 else 0.0
-    results['predictedAssists'] = (float(a90) if a90 is not None else 0.0) * (playing_time_min / 90) if playing_time_min > 0 else 0.0
+    # Get position and rating for minimum G/A enforcement
+    position = dfStats['pos'].iloc[0] if 'pos' in dfStats.columns else ''
+    player_positions = dfStats['player_positions'].iloc[0] if 'player_positions' in dfStats.columns else ''
+    current_overall = float(dfStats['overall'].iloc[0])
+    
+    # Use ML predictions
+    g90_ml = float(g90) if g90 is not None else 0.0
+    a90_ml = float(a90) if a90 is not None else 0.0
+    
+    # Determine position type - check both pos and player_positions
+    combined_position = f"{position} {player_positions}".upper()
+    is_forward = any(x in combined_position for x in ['FW', 'ST', 'CF'])
+    is_attacking_mid = any(x in combined_position for x in ['CAM', 'LM', 'RM', 'AM'])
+    is_winger = any(x in combined_position for x in ['LW', 'RW'])
+    is_midfielder = any(x in combined_position for x in ['CM', 'CDM']) and not is_attacking_mid
+    
+    # Calculate expected G/A per 90 based on rating and position
+    # This gives us a target to compare against ML predictions
+    expected_g90 = 0.0
+    expected_a90 = 0.0
+    
+    if is_forward:
+        expected_g90 = 0.10 + (current_overall - 65) * 0.030  # Scales from 0.25 at 70 to 0.85 at 90
+        expected_a90 = 0.05 + (current_overall - 65) * 0.014  # Scales from 0.12 at 70 to 0.40 at 90
+    elif is_winger:
+        expected_g90 = 0.05 + (current_overall - 65) * 0.028  # Scales from 0.19 at 70 to 0.75 at 90
+        expected_a90 = 0.10 + (current_overall - 65) * 0.028  # Scales from 0.24 at 70 to 0.80 at 90
+    elif is_attacking_mid:
+        expected_g90 = 0.02 + (current_overall - 65) * 0.024  # Scales from 0.14 at 70 to 0.62 at 90
+        expected_a90 = 0.10 + (current_overall - 65) * 0.036  # Scales from 0.28 at 70 to 1.0 at 90
+    elif is_midfielder:
+        expected_g90 = 0.00 + (current_overall - 65) * 0.008  # Scales from 0.04 at 70 to 0.20 at 90
+        expected_a90 = 0.02 + (current_overall - 65) * 0.014  # Scales from 0.09 at 70 to 0.37 at 90
+    
+    # If ML prediction is unrealistically low, blend it with expected
+    # This fixes young players whose ML learned from bench appearances
+    g90_value = g90_ml
+    a90_value = a90_ml
+    
+    # For goals: if ML < 80% of expected, blend 20% ML + 80% expected
+    if g90_ml < expected_g90 * 0.80 and expected_g90 > 0:
+        g90_value = g90_ml * 0.2 + expected_g90 * 0.8
+    
+    # For assists: be VERY aggressive since ML has systematic low bias
+    # If ML < 95% of expected (almost always for CAMs), blend 10% ML + 90% expected
+    if a90_ml < expected_a90 * 0.95 and expected_a90 > 0:
+        a90_value = a90_ml * 0.1 + expected_a90 * 0.9
+    
+    # Age-based G/A adjustments (prevents flat lines for aging players)
+    age = int(dfStats['age_fifa'].iloc[0]) if 'age_fifa' in dfStats.columns else 25
+    
+    if age >= 32 and (is_forward or is_winger or is_attacking_mid):
+        # Attacking players decline in output with age
+        if age >= 35:
+            # Steep decline for 35+ attackers (-8% per year)
+            decline_factor = 0.92 ** (age - 34)
+            g90_value *= decline_factor
+            a90_value *= decline_factor
+        elif age >= 32:
+            # Gradual decline for 32-34 attackers (-4% per year)
+            decline_factor = 0.96 ** (age - 31)
+            g90_value *= decline_factor
+            a90_value *= decline_factor
+    elif age <= 22 and (is_forward or is_winger or is_attacking_mid):
+        # Young attackers gradually improve output as they mature
+        if age <= 20:
+            # Still developing: 85% of peak output
+            g90_value *= 0.85
+            a90_value *= 0.85
+        elif age <= 22:
+            # Nearly mature: 92% of peak output
+            g90_value *= 0.92
+            a90_value *= 0.92
+    
+    results['predictedGoals'] = g90_value * (playing_time_min / 90) if playing_time_min > 0 else 0.0
+    results['predictedAssists'] = a90_value * (playing_time_min / 90) if playing_time_min > 0 else 0.0
     results['predictedInterceptions'] = (float(int90) if int90 is not None else 0.0) * (playing_time_min / 90) if playing_time_min > 0 else 0.0
     results['predictedTackles'] = (float(tkl90) if tkl90 is not None else 0.0) * (playing_time_min / 90) if playing_time_min > 0 else 0.0
     results['predictedKeyPasses'] = (float(key90) if key90 is not None else 0.0) * (playing_time_min / 90) if playing_time_min > 0 else 0.0
@@ -559,21 +775,29 @@ def predictStats(dfStats, player=None):
     ratingChange = float(ratingChange_val) if ratingChange_val is not None else 0.0  # actual predicted
     current_overall = float(math.ceil(float(dfStats['overall'].iloc[0])))        
     
+    # Get age and potential for youth player boost
+    age_fifa_val = int(dfStats['age_fifa'].iloc[0])
+    original_potential = dfStats.get('original_potential', dfStats['potential'].iloc[0])
+    if isinstance(original_potential, pd.Series):
+        original_potential = original_potential.iloc[0]
+    player_potential = float(original_potential)
+    
     if momentum > 10:
         # Rating Momentum Fix (if momentum is very high, give revert negatives)
         results['predictRatingChange'], results['predictOverall'] = FixMomentum(momentum, ratingChange, current_overall)
     else:
-        # Else fix overall & change (rounding)
+        # Else fix overall & change (rounding) with youth boost
         predicted_ovr = results.get('predictOverall', current_overall)
         rating_change = (predicted_ovr) - current_overall # calculated using new - old
-        results['predictOverall'], results['predictRatingChange'] = FixOverall(current_overall, rating_change)
+        results['predictOverall'], results['predictRatingChange'] = FixOverall(current_overall, rating_change, age_fifa_val, player_potential)
     
      # value fix | For old players and improper increase/decrease
     # Use value from dataframe (which gets updated each year) instead of player object
     player_value_eur = dfStats['value_eur'].iloc[0] if 'value_eur' in dfStats.columns else (getattr(player, 'value_eur', None) if player else None)
     age_fifa_val = int(dfStats['age_fifa'].iloc[0])
+    current_overall_for_value = float(dfStats['overall'].iloc[0])
     predictedValueEur = int(results.get('predictValue'))
-    results['predictValue'] = FixValue(age_fifa_val, player_value_eur, results['predictRatingChange'], predictedValueEur)
+    results['predictValue'] = FixValue(age_fifa_val, player_value_eur, results['predictRatingChange'], predictedValueEur, current_overall_for_value)
 
     # Attribute fix | update dfStats with fixed attributes after predictions
     position = dfStats['pos'].iloc[0]
