@@ -1,0 +1,32 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: FUT Prediction API
+
+Parameters:
+  DatabaseUrl:
+    Type: String
+    Description: Neon database connection string
+    NoEcho: true
+
+Resources:
+  FutApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: fut-prediction-api
+      PackageType: Image
+      Timeout: 30
+      MemorySize: 512
+      Environment:
+        Variables:
+          DATABASE_URL: !Ref DatabaseUrl
+      FunctionUrlConfig:
+        AuthType: NONE
+    Metadata:
+      Dockerfile: Dockerfile
+      DockerContext: .
+      DockerTag: python3.12-v1
+
+Outputs:
+  FutApiUrl:
+    Description: Function URL
+    Value: !GetAtt FutApiFunction.Arn

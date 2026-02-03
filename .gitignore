@@ -13,3 +13,6 @@ frontend/out/
 data/raw/
 data/clean/
 model/saved_models/
+
+backend/.aws-sam/
+backend/samconfig.toml

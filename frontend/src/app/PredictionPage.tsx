@@ -104,7 +104,7 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
   const [position, setPosition] = useState<string | null>(null);
   const [club, setClub] = useState<string | null>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
-  const [predictedStatsLib, setPredictedStatsLib] = useState<any[]>(null);
+  const [predictedStatsLib, setPredictedStatsLib] = useState<any[]>([]);
   const [nationalityText, setNationalityText] = useState<string | null>(null);
   const [selectedPredictionSeason, setSelectedPredictionSeason] = useState("25/26");
   

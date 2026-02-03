@@ -1,18 +1,18 @@
-# FastAPI and Server
+# Core API
 fastapi
 uvicorn
 mangum
 
-# Database ORM and Adapter
+# Database
 sqlmodel
 psycopg2-binary
 
-# Data Science & ML
+# ML & Data
 pandas
 scikit-learn
 numpy
+xgboost
 
 # Utilities
 python-dotenv
 pydantic-settings
-xgboost
