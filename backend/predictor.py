@@ -282,7 +282,27 @@ def FixOverall(current, change, age=None, potential=None):
     
     # Round the change and calculate new overall
     predictChange = round(float(change), 0)
+    
+    # Diminishing returns for elite players - harder to improve at high ratings
+    if current >= 92 and predictChange > 0:
+        # 92+: very hard to improve, max +1 and only 50% of the time
+        predictChange = min(round(predictChange * 0.4), 1)
+    elif current >= 90 and predictChange > 0:
+        # 90-91: hard to improve, max +1
+        predictChange = min(predictChange, 1)
+    elif current >= 88 and predictChange > 0:
+        # 88-89: can gain max +2
+        predictChange = min(predictChange, 2)
+    elif current >= 85 and predictChange > 0:
+        # 85-87: can gain max +3
+        predictChange = min(predictChange, 3)
+    
     predictOverall = float(current + predictChange)
+    
+    # Soft cap at 93 - only GOAT tier players reach this
+    if predictOverall > 93:
+        predictOverall = 93.0
+        predictChange = predictOverall - current
     
     return predictOverall, predictChange
 
@@ -309,13 +329,17 @@ def FixValue(age, valueEur, ratingChange, predictedVal, overall=75):
             # Diminishing returns based on current value
             # Higher values grow slower (percentage-wise)
             if valueEur > 150_000_000:  # Over €150M
-                growth_multiplier = 0.06
+                growth_multiplier = 0.04
             elif valueEur > 100_000_000:  # €100M - €150M
-                growth_multiplier = 0.08
+                growth_multiplier = 0.06
             elif valueEur > 50_000_000:  # €50M - €100M
-                growth_multiplier = 0.10
-            else:  # Under €50M
-                growth_multiplier = 0.12
+                growth_multiplier = 0.08
+            elif valueEur > 20_000_000:  # €20M - €50M
+                growth_multiplier = 0.18
+            elif valueEur > 10_000_000:  # €10M - €20M
+                growth_multiplier = 0.30
+            else:  # Under €10M - young players making big jumps
+                growth_multiplier = 0.50
             
             predictedVal = valueEur + (math.sqrt(safe_rating_change) * (growth_multiplier * valueEur))
         # Rating decreased: apply gentle penalty
@@ -328,23 +352,41 @@ def FixValue(age, valueEur, ratingChange, predictedVal, overall=75):
         elif -1 < ratingChange < 1:
             # Blend 70% model, 30% current value for stability
             predictedVal = (predictedVal * 0.7) + (valueEur * 0.3)
+            
+            # Cap year-over-year decline for elite players (85+) maintaining rating
+            # Prevents sharp drops when rating doesn't change
+            if overall >= 85 and ratingChange >= 0 and predictedVal < valueEur:
+                max_decline = valueEur * 0.15  # Allow max 15% drop per year
+                min_value = valueEur - max_decline
+                if predictedVal < min_value:
+                    predictedVal = min_value
     except Exception as e:
         print(f"FixValue math error: {e}")
         predictedVal = valueEur
 
     # Calculate expected minimum value based on overall rating
-    # This serves as a baseline to detect undervalued young players
-    expected_value = 0
-    if overall >= 85:
-        expected_value = 60_000_000
-    elif overall >= 82:
-        expected_value = 25_000_000
-    elif overall >= 80:
-        expected_value = 12_000_000
-    elif overall >= 78:
-        expected_value = 6_000_000
-    elif overall >= 75:
-        expected_value = 3_000_000
+    # This serves as a baseline to prevent undervaluation FOR YOUNG/PRIME PLAYERS ONLY
+    # Veterans (30+) are exempt from these floors
+    if age < 30:
+        expected_value = 0
+        if overall >= 90:
+            expected_value = 80_000_000
+        elif overall >= 88:
+            expected_value = 60_000_000
+        elif overall >= 85:
+            expected_value = 40_000_000
+        elif overall >= 82:
+            expected_value = 25_000_000
+        elif overall >= 80:
+            expected_value = 15_000_000
+        elif overall >= 78:
+            expected_value = 8_000_000
+        elif overall >= 75:
+            expected_value = 4_000_000
+        
+        # Enforce minimum value floor based on overall rating (young/prime only)
+        if predictedVal < expected_value:
+            predictedVal = expected_value
     
     # Age fixing | aggressive depreciation for older high-value players
     # AND value boost ONLY for undervalued young elite players
@@ -354,21 +396,53 @@ def FixValue(age, valueEur, ratingChange, predictedVal, overall=75):
         youth_premium = 1.0
         if age <= 20:
             youth_premium = 1.25  # 25% premium for 18-20 year olds
-        elif age <= 22:
+        elif age <= 22: 
             youth_premium = 1.18  # 18% premium for 21-22 year olds
         else:  # age 23
             youth_premium = 1.12  # 12% premium for 23 year olds
         predictedVal = predictedVal * youth_premium
     elif age >= 33 and predictedVal > 20_000_000:
-        # 33+: aggressive decay for expensive players (12% per year)
+        # 33+: decay for expensive players, but slower for elite
         years_past_33 = age - 33
-        age_factor = math.pow(0.91, years_past_33)
+        if overall >= 90:
+            age_factor = math.pow(0.94, years_past_33)  # Elite: 6% per year
+        else:
+            age_factor = math.pow(0.88, years_past_33)  # Regular: 12% per year
         predictedVal = predictedVal * age_factor
     elif age >= 30 and predictedVal > 10_000_000:
-        # 30-32: moderate decay for valuable players (5% per year)
+        # 30-32: moderate decay, but slower for elite
         years_past_30 = age - 30
-        age_factor = math.pow(0.92, years_past_30)
+        if overall >= 90:
+            age_factor = math.pow(0.96, years_past_30)  # Elite: 4% per year
+        else:
+            age_factor = math.pow(0.92, years_past_30)  # Regular: 8% per year
         predictedVal = predictedVal * age_factor
+    
+    # Elite player prime years value boost
+    # ONLY applies to undervalued elite players (below €150M for 90+ OVR)
+    # Prevents runaway compounding for already peak-valued players
+    if overall >= 90 and 21 <= age <= 28 and predictedVal < 150_000_000:
+        # Graduated boost based on overall
+        if overall >= 93:
+            elite_boost = 1.20  # 20% boost for 93+ OVR
+        elif overall >= 91:
+            elite_boost = 1.15  # 15% boost for 91-92 OVR
+        else:
+            elite_boost = 1.10  # 10% boost for 90 OVR
+        predictedVal = predictedVal * elite_boost
+    elif overall >= 90 and 29 <= age <= 30 and predictedVal < 150_000_000:
+        # Age 29-30: smaller boost
+        if overall >= 93:
+            elite_boost = 1.10
+        elif overall >= 91:
+            elite_boost = 1.06
+        else:
+            elite_boost = 1.03
+        predictedVal = predictedVal * elite_boost
+    
+    # Sanity check: value shouldn't increase when rating drops
+    if ratingChange < 0 and predictedVal > valueEur:
+        predictedVal = valueEur * 0.97  # Allow max 3% decline when rating drops
     
     # Absolute floor: no player below €500k
     predictedVal = max(predictedVal, 500_000)
@@ -520,19 +594,28 @@ def resultsToNextSeasonDf(currentDf, results):
     
     nextDf['value_eur'] = results.get('predictValue', currentDf['value_eur'].iloc[0] if 'value_eur' in currentDf.columns else 0)
     
-    # 3. Keep database minutes constant across all predictions (don't use predicted minutes)
+    # 3. Use predicted minutes for next season if current minutes are low
     databaseMinutes = currentDf['Playing Time_Min'].iloc[0]
-    nextDf['Playing Time_Min'] = databaseMinutes
-    nextDf['Playing Time_90s'] = databaseMinutes / 90 if databaseMinutes > 0 else 0
+    predictedMinutes = results.get('predictedMinutes', databaseMinutes)
     
-    # Use database minutes to calculate per-90 stats from predicted totals
-    if databaseMinutes > 0:
-        nextDf['Per 90 Minutes_Gls'] = (results.get('predictedGoals', 0) / databaseMinutes) * 90
-        nextDf['Per 90 Minutes_Ast'] = (results.get('predictedAssists', 0) / databaseMinutes) * 90
+    # For players with low minutes, transition to predicted minutes over time
+    if databaseMinutes < 900:  # Less than 10 full games
+        # Use predicted minutes but cap reasonably
+        effectiveMinutes = min(float(predictedMinutes), 2500)
+    else:
+        effectiveMinutes = databaseMinutes
+    
+    nextDf['Playing Time_Min'] = effectiveMinutes
+    nextDf['Playing Time_90s'] = effectiveMinutes / 90 if effectiveMinutes > 0 else 0
+    
+    # Use effective minutes to calculate per-90 stats from predicted totals
+    if effectiveMinutes > 0:
+        nextDf['Per 90 Minutes_Gls'] = (results.get('predictedGoals', 0) / effectiveMinutes) * 90
+        nextDf['Per 90 Minutes_Ast'] = (results.get('predictedAssists', 0) / effectiveMinutes) * 90
         nextDf['Per 90 Minutes_G+A'] = nextDf['Per 90 Minutes_Gls'] + nextDf['Per 90 Minutes_Ast']
-        nextDf['Per 90 Minutes_Tackles_Tkl'] = (results.get('predictedTackles', 0) / databaseMinutes) * 90
-        nextDf['Per 90 Minutes_Int'] = (results.get('predictedInterceptions', 0) / databaseMinutes) * 90
-        nextDf['Per 90 Minutes_KP'] = (results.get('predictedKeyPasses', 0) / databaseMinutes) * 90
+        nextDf['Per 90 Minutes_Tackles_Tkl'] = (results.get('predictedTackles', 0) / effectiveMinutes) * 90
+        nextDf['Per 90 Minutes_Int'] = (results.get('predictedInterceptions', 0) / effectiveMinutes) * 90
+        nextDf['Per 90 Minutes_KP'] = (results.get('predictedKeyPasses', 0) / effectiveMinutes) * 90
     else:
         nextDf['Per 90 Minutes_Gls'] = 0
         nextDf['Per 90 Minutes_Ast'] = 0
@@ -689,6 +772,11 @@ def predictStats(dfStats, player=None):
     # Get position and rating for minimum G/A enforcement
     position = dfStats['pos'].iloc[0] if 'pos' in dfStats.columns else ''
     player_positions = dfStats['player_positions'].iloc[0] if 'player_positions' in dfStats.columns else ''
+    
+    # Also check player object for position data (fallback)
+    if player is not None and not player_positions:
+        player_positions = getattr(player, 'player_positions', '') or ''
+    
     current_overall = float(dfStats['overall'].iloc[0])
     
     # Use ML predictions
@@ -696,77 +784,148 @@ def predictStats(dfStats, player=None):
     a90_ml = float(a90) if a90 is not None else 0.0
     
     # Determine position type - check both pos and player_positions
+    # Priority: CAM/attacking mid > winger > forward > midfielder (for G/A expectations)
     combined_position = f"{position} {player_positions}".upper()
-    is_forward = any(x in combined_position for x in ['FW', 'ST', 'CF'])
-    is_attacking_mid = any(x in combined_position for x in ['CAM', 'LM', 'RM', 'AM'])
-    is_winger = any(x in combined_position for x in ['LW', 'RW'])
-    is_midfielder = any(x in combined_position for x in ['CM', 'CDM']) and not is_attacking_mid
+    is_attacking_mid = any(x in combined_position for x in ['CAM', 'AM'])
+    is_winger = any(x in combined_position for x in ['LW', 'RW', 'LM', 'RM'])
+    is_forward = any(x in combined_position for x in ['FW', 'ST', 'CF']) and not is_attacking_mid
+    is_midfielder = any(x in combined_position for x in ['CM', 'CDM']) and not is_attacking_mid and not is_winger
     
     # Calculate expected G/A per 90 based on rating and position
     # This gives us a target to compare against ML predictions
+    # Uses tiered rates to prevent mid-tier players from getting elite numbers
     expected_g90 = 0.0
     expected_a90 = 0.0
     
-    if is_forward:
-        expected_g90 = 0.10 + (current_overall - 65) * 0.030  # Scales from 0.25 at 70 to 0.85 at 90
-        expected_a90 = 0.05 + (current_overall - 65) * 0.014  # Scales from 0.12 at 70 to 0.40 at 90
-    elif is_winger:
-        expected_g90 = 0.05 + (current_overall - 65) * 0.028  # Scales from 0.19 at 70 to 0.75 at 90
-        expected_a90 = 0.10 + (current_overall - 65) * 0.028  # Scales from 0.24 at 70 to 0.80 at 90
-    elif is_attacking_mid:
-        expected_g90 = 0.02 + (current_overall - 65) * 0.024  # Scales from 0.14 at 70 to 0.62 at 90
-        expected_a90 = 0.10 + (current_overall - 65) * 0.036  # Scales from 0.28 at 70 to 1.0 at 90
-    elif is_midfielder:
-        expected_g90 = 0.00 + (current_overall - 65) * 0.008  # Scales from 0.04 at 70 to 0.20 at 90
-        expected_a90 = 0.02 + (current_overall - 65) * 0.014  # Scales from 0.09 at 70 to 0.37 at 90
+    # Use PREDICTED overall + rating change for expected rates
+    # FixOverall() will later adjust the rating, so we need to account for that
+    # Use current + predicted change as best estimate of final overall
+    predicted_ovr_raw = results.get('predictOverall', current_overall)
+    predicted_change_raw = results.get('predictRatingChange', 0)
+    predicted_change = float(predicted_change_raw) if predicted_change_raw is not None else 0
     
-    # If ML prediction is unrealistically low, blend it with expected
-    # This fixes young players whose ML learned from bench appearances
+    # Best estimate: current overall + the predicted change (before FixOverall adjusts it)
+    # This better approximates what the final overall will be after FixOverall()
+    estimated_final_ovr = current_overall + predicted_change
+    current_ovr = float(estimated_final_ovr) if estimated_final_ovr is not None else current_overall
+    
+    # Linear scaling with overall - each OVR point increases G/A consistently
+    # print(f"[NEW CODE v2.0] Calculating expected G/A for {position} {player_positions} at {current_ovr} OVR")
+    if is_forward:
+        # Forwards: 70 OVR = 0.15/0.08, 95 OVR = 0.70/0.35 (goals-focused)
+        expected_g90 = 0.15 + (current_ovr - 70) * 0.022  # +0.022 per OVR
+        expected_a90 = 0.08 + (current_ovr - 70) * 0.0108  # +0.0108 per OVR
+    elif is_winger:
+        # Wingers: 70 OVR = 0.20/0.18, 95 OVR = 0.65/0.60 (balanced)
+        expected_g90 = 0.20 + (current_ovr - 70) * 0.018  # +0.018 per OVR
+        expected_a90 = 0.18 + (current_ovr - 70) * 0.0168  # +0.0168 per OVR
+    elif is_attacking_mid:
+        # CAMs: 70 OVR = 0.20/0.24, 95 OVR = 0.60/0.70 (assists-focused)
+        expected_g90 = 0.20 + (current_ovr - 70) * 0.016  # +0.016 per OVR
+        expected_a90 = 0.24 + (current_ovr - 70) * 0.0184  # +0.0184 per OVR
+    elif is_midfielder:
+        # CMs: 70 OVR = 0.04/0.08, 95 OVR = 0.30/0.425 (support)
+        expected_g90 = 0.04 + (current_ovr - 70) * 0.0104  # +0.0104 per OVR
+        expected_a90 = 0.08 + (current_ovr - 70) * 0.0138  # +0.0138 per OVR
+    
+    # Start with ML predictions
     g90_value = g90_ml
     a90_value = a90_ml
     
-    # For goals: if ML < 80% of expected, blend 20% ML + 80% expected
-    if g90_ml < expected_g90 * 0.80 and expected_g90 > 0:
-        g90_value = g90_ml * 0.2 + expected_g90 * 0.8
-    
-    # For assists: be VERY aggressive since ML has systematic low bias
-    # If ML < 95% of expected (almost always for CAMs), blend 10% ML + 90% expected
-    if a90_ml < expected_a90 * 0.95 and expected_a90 > 0:
-        a90_value = a90_ml * 0.1 + expected_a90 * 0.9
-    
-    # Age-based G/A adjustments (prevents flat lines for aging players)
+    # Age-based G/A adjustments (creates natural career arc)
+    # Apply BEFORE floor logic so floors represent minimum at any age
     age = int(dfStats['age_fifa'].iloc[0]) if 'age_fifa' in dfStats.columns else 25
     
-    if age >= 32 and (is_forward or is_winger or is_attacking_mid):
-        # Attacking players decline in output with age
-        if age >= 35:
-            # Steep decline for 35+ attackers (-8% per year)
-            decline_factor = 0.92 ** (age - 34)
-            g90_value *= decline_factor
-            a90_value *= decline_factor
-        elif age >= 32:
-            # Gradual decline for 32-34 attackers (-4% per year)
-            decline_factor = 0.96 ** (age - 31)
-            g90_value *= decline_factor
-            a90_value *= decline_factor
-    elif age <= 22 and (is_forward or is_winger or is_attacking_mid):
-        # Young attackers gradually improve output as they mature
-        if age <= 20:
-            # Still developing: 85% of peak output
-            g90_value *= 0.85
-            a90_value *= 0.85
-        elif age <= 22:
-            # Nearly mature: 92% of peak output
-            g90_value *= 0.92
-            a90_value *= 0.92
+    age_multiplier = 1.0
+    if is_forward or is_winger or is_attacking_mid or is_midfielder:
+        # Career arc multipliers - creates natural peak around 25-26
+        if age <= 19:
+            age_multiplier = 0.88
+        elif age == 20:
+            age_multiplier = 0.92
+        elif age == 21:
+            age_multiplier = 0.95
+        elif age == 22:
+            age_multiplier = 0.97
+        elif age == 23:
+            age_multiplier = 0.99
+        elif age == 24:
+            age_multiplier = 1.01
+        elif age in [25, 26]:
+            # Peak years
+            age_multiplier = 1.04
+        elif age == 27:
+            age_multiplier = 1.02
+        elif age == 28:
+            age_multiplier = 1.00
+        elif age == 29:
+            age_multiplier = 0.97
+        elif age == 30:
+            age_multiplier = 0.94
+        elif age == 31:
+            age_multiplier = 0.91
+        elif age >= 32 and age <= 34:
+            age_multiplier = 0.88 - (age - 32) * 0.03
+        else:
+            # 35+
+            age_multiplier = 0.79 - (age - 35) * 0.04
+        
+        g90_value *= age_multiplier
+        a90_value *= age_multiplier
     
-    results['predictedGoals'] = g90_value * (playing_time_min / 90) if playing_time_min > 0 else 0.0
-    results['predictedAssists'] = a90_value * (playing_time_min / 90) if playing_time_min > 0 else 0.0
-    results['predictedInterceptions'] = (float(int90) if int90 is not None else 0.0) * (playing_time_min / 90) if playing_time_min > 0 else 0.0
-    results['predictedTackles'] = (float(tkl90) if tkl90 is not None else 0.0) * (playing_time_min / 90) if playing_time_min > 0 else 0.0
-    results['predictedKeyPasses'] = (float(key90) if key90 is not None else 0.0) * (playing_time_min / 90) if playing_time_min > 0 else 0.0
+    # Rating change affects G/A - good seasons boost output, bad seasons reduce it
+    rating_change_raw = results.get('predictRatingChange', 0)
+    rating_multiplier = 1.0
+    if rating_change_raw is not None:
+        rating_change = float(rating_change_raw)
+        # +1 OVR = +5% G/A, -1 OVR = -5% G/A (capped at ±15%)
+        rating_multiplier = 1.0 + (rating_change * 0.05)
+        rating_multiplier = max(0.85, min(1.15, rating_multiplier))  # Cap between 85% and 115%
+        g90_value *= rating_multiplier
+        a90_value *= rating_multiplier
+    
+    # NOW apply floor logic AFTER age multiplier but using age-only adjustment
+    # Floors represent talent level at this age, independent of seasonal form (rating change)
+    # This prevents floor miscalculation when FixOverall() later adjusts the rating
+    if is_forward or is_winger or is_attacking_mid or is_midfielder:
+        # Calculate age-adjusted expected rates (base talent scaled by career stage)
+        age_adjusted_expected_g90 = expected_g90 * age_multiplier
+        age_adjusted_expected_a90 = expected_a90 * age_multiplier
+        
+        # Apply floors: 85% of expected for goals, 80% for assists
+        # Tighter than before to ensure quality players hit closer to expected rates
+        g90_floor = age_adjusted_expected_g90 * 0.85
+        a90_floor = age_adjusted_expected_a90 * 0.80
+        
+        # Enforce minimums AFTER rating multiplier applied to ML prediction
+        # This allows good form to boost above floor, bad form to drop to floor
+        if g90_value < g90_floor:
+            g90_value = g90_floor
+        if a90_value < a90_floor:
+            a90_value = a90_floor
+        
+        # print(f"DEBUG G/A: pos={combined_position}, start_ovr={current_overall:.0f}, pred_ovr={current_ovr:.0f}, age={age}, g90_ml={g90_ml:.3f}, expected={expected_g90:.3f}, age_mult={age_multiplier:.2f}, rating_mult={rating_multiplier:.2f}, floor={g90_floor:.3f}, final={g90_value:.3f} | a90: expected={expected_a90:.3f}, floor={a90_floor:.3f}, final={a90_value:.3f}")
+    
+    # Get predicted minutes for total stat calculations
+    predicted_minutes = results.get('predictMin', playing_time_min)
+    predicted_minutes = float(predicted_minutes) if predicted_minutes is not None else playing_time_min
+    
+    # For players with very low current minutes, use predicted minutes for total calculations
+    # This fixes young players who had limited playing time but are expected to play more
+    minutes_for_totals = playing_time_min
+    if playing_time_min < 900:  # Less than 10 full games
+        # Use predicted minutes but cap at reasonable value to avoid inflation
+        minutes_for_totals = min(predicted_minutes, 2500)  # Cap at ~28 full games
+    
+    results['predictedGoals'] = g90_value * (minutes_for_totals / 90) if minutes_for_totals > 0 else 0.0
+    results['predictedAssists'] = a90_value * (minutes_for_totals / 90) if minutes_for_totals > 0 else 0.0
+    
+    # print(f"FINAL CALC: g90={g90_value:.3f} × ({minutes_for_totals}/90) = {results['predictedGoals']:.2f} goals | a90={a90_value:.3f} × ({minutes_for_totals}/90) = {results['predictedAssists']:.2f} assists")
+    results['predictedInterceptions'] = (float(int90) if int90 is not None else 0.0) * (minutes_for_totals / 90) if minutes_for_totals > 0 else 0.0
+    results['predictedTackles'] = (float(tkl90) if tkl90 is not None else 0.0) * (minutes_for_totals / 90) if minutes_for_totals > 0 else 0.0
+    results['predictedKeyPasses'] = (float(key90) if key90 is not None else 0.0) * (minutes_for_totals / 90) if minutes_for_totals > 0 else 0.0
     results['predictedPotential'] = results.pop('predictPotential', 0.0)
-    results['predictedMinutes'] = results.pop('predictMin', 0.0)
+    results['predictedMinutes'] = predicted_minutes
 
     # POST PREDICTION ADJUSTMENTS
 

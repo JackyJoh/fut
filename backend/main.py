@@ -7,7 +7,10 @@ from predictor import predictNineYears, predictStats
 from model_utils import get_players_by_name, get_player_by_id, player_to_features, get_players_by_name
 
 from database import create_db_and_tables, get_session
-from models import Player, PlayerRead
+from models import Player, PlayerRead, PlayerPrediction
+
+# Mangum for AWS Lambda
+from mangum import Mangum
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -47,22 +50,30 @@ def searchPlayers(name: str, session: Session = Depends(get_session)):
 @app.get("/predictPlayer/{playerID}")
 def predictPlayer(playerID: int, session: Session = Depends(get_session)):
     """
-    Predict stats for a player given their player ID.
+    Get pre-computed predictions for a player from database (instant).
     """
     try:
+        # Get cached prediction
+        cached = session.exec(
+            select(PlayerPrediction).where(PlayerPrediction.player_id == playerID)
+        ).first()
+        
+        if not cached:
+            return {"error": f"Predictions not found for player ID {playerID}"}
+        
+        # Get player info
         player = get_player_by_id(session, playerID)
-        if not player:
-            return {"error": "Player not found"}
-        # Convert to model features
-        features = player_to_features(player)
-        # Make predictions
-        statsLibrary = predictNineYears(features, player)
+        
         return {
             "player": player,
-            "statsLibrary": statsLibrary
+            "statsLibrary": cached.stats_library
         }
     except Exception as e:
+        return {"error": f"Query failed: {str(e)}"}
         return {"error": f"Prediction failed: {str(e)}"}
+
+# Lambda handler
+handler = Mangum(app, lifespan="off")
 
 @app.get("/health")
 def health_check():

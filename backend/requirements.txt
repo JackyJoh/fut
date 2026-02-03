@@ -1,6 +1,7 @@
 # FastAPI and Server
 fastapi
 uvicorn
+mangum
 
 # Database ORM and Adapter
 sqlmodel
