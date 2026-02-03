@@ -104,7 +104,7 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
   const [position, setPosition] = useState<string | null>(null);
   const [club, setClub] = useState<string | null>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
-  const [predictedStatsLib, setPredictedStatsLib] = useState<any[]>([]);
+  const [predictedStatsLib, setPredictedStatsLib] = useState<any[] | null>(null);
   const [nationalityText, setNationalityText] = useState<string | null>(null);
   const [selectedPredictionSeason, setSelectedPredictionSeason] = useState("25/26");
   
@@ -175,8 +175,9 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
     setIsLoadingSuggestions(true);
 
     try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
       const response = await fetch(
-        `http://localhost:8000/searchPlayers?name=${encodeURIComponent(query)}`
+        `${apiUrl}/searchPlayers?name=${encodeURIComponent(query)}`
       );
       
       if (!response.ok) {
@@ -361,8 +362,9 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
       // Fetch player predictions if ID is available
       if (playerId) {
         try {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
           const response = await fetch(
-            `http://localhost:8000/predictPlayer/${playerId}`
+            `${apiUrl}/predictPlayer/${playerId}`
           );
           
           if (!response.ok) {

@@ -29,4 +29,4 @@ Resources:
 Outputs:
   FutApiUrl:
     Description: Function URL
-    Value: !GetAtt FutApiFunction.Arn
+    Value: !GetAtt FutApiFunctionUrl.FunctionUrl
