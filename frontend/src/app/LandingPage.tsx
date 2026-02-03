@@ -13,7 +13,7 @@ export default function LandingPage({ onStartPredict }: LandingPageProps) {
       <header className="relative z-10 flex items-center justify-between px-3 sm:px-4 md:px-6 py-2 sm:py-3 border-b border-white/25 shrink-0 bg-[#0a0f0a]/90">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center">
-            <img src="futpredict-removebg2.png" className="w-full h-full object-cover" alt="Fut Predict Logo" />
+            <img src="/futPredict-removebg2.png" className="w-full h-full object-cover" alt="Fut Predict Logo" />
           </div>
           <span className="text-white font-semibold text-base sm:text-lg">Fut Predict</span>
         </div>

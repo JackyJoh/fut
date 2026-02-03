@@ -15,7 +15,8 @@ from mangum import Mangum
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Creating database and tables...")
-    create_db_and_tables()
+    # Don't create tables on Lambda - they should already exist
+    # create_db_and_tables()
     print("Database ready.")
     yield
 
@@ -23,7 +24,7 @@ app = FastAPI(
     title="FUT Prediction API",
     version="0.1.0",
     description="API for player rating and market value predictions.",
-    lifespan=lifespan  # attach lifespan so tables get created at startup
+    lifespan=lifespan
 )
 
 # Add CORS middleware
