@@ -3,8 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from sqlmodel import Session, select
 from typing import List
-from predictor import predictNineYears, predictStats
-from model_utils import get_players_by_name, get_player_by_id, player_to_features, get_players_by_name
+from model_utils import get_players_by_name, get_player_by_id
 
 from database import create_db_and_tables, get_session
 from models import Player, PlayerRead, PlayerPrediction

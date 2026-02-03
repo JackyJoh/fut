@@ -11,6 +11,7 @@ psycopg2-binary
 pandas
 scikit-learn
 numpy
+xgboost
 
 # Utilities
 python-dotenv
