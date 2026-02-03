@@ -793,18 +793,10 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
         {/* Overall Progression Section */}
         <div className="backdrop-blur-md bg-black/20 border border-white/10 rounded-xl p-3 sm:p-4 mt-4" style={{ minHeight: '500px' }}>
           <h3 className="text-gray-400 text-xs sm:text-sm mb-1.5 sm:mb-2">Overall Progression</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-full" style={{ height: '400px', minHeight: window.innerWidth < 768 ? '800px' : '400px' }}>
-            <div className="flex flex-col">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:h-[400px]">
+            <div className="flex flex-col h-[250px] md:h-auto">
               <h4 className="text-white text-xs mb-2">Market Value</h4>
-              <div
-                className="flex-1 outline-none"
-                style={{
-                  height: '550px',
-                  WebkitTapHighlightColor: 'transparent',
-                  ...(window.innerWidth < 768 ? { height: '600px' } : {})
-                }}
-                tabIndex={-1}
-              >
+              <div className="flex-1 outline-none" tabIndex={-1}>
                 <ResponsiveContainer
                   width="100%"
                   height="100%"
@@ -838,17 +830,9 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
                 </ResponsiveContainer>
               </div>
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col h-[250px] md:h-auto">
               <h4 className="text-white text-xs mb-2">Rating/Potential</h4>
-              <div
-                className="flex-1 outline-none"
-                style={{
-                  height: '550px',
-                  WebkitTapHighlightColor: 'transparent',
-                  ...(window.innerWidth < 768 ? { height: '600px' } : {})
-                } as React.CSSProperties}
-                tabIndex={-1}
-              >
+              <div className="flex-1 outline-none" tabIndex={-1}>
                 <ResponsiveContainer
                   width="100%"
                   height="100%"
@@ -877,17 +861,9 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
                 </ResponsiveContainer>
               </div>
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col h-[250px] md:h-auto">
               <h4 className="text-white text-xs mb-2">Goals & Assists</h4>
-              <div
-                className="flex-1 outline-none"
-                style={{
-                  height: '550px',
-                  WebkitTapHighlightColor: 'transparent',
-                  ...(window.innerWidth < 768 ? { height: '600px' } : {})
-                }}
-                tabIndex={-1}
-              >
+              <div className="flex-1 outline-none" tabIndex={-1}>
                 <ResponsiveContainer
                   width="100%"
                   height="100%"

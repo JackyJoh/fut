@@ -13,6 +13,7 @@
     "@emotion/styled": "^11.14.1",
     "@mui/material": "^7.3.6",
     "@mui/x-charts": "^8.22.1",
+    "@vercel/analytics": "^1.6.1",
     "motion": "^12.23.26",
     "next": "^16.1.1",
     "ogl": "^1.0.11",

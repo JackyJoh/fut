@@ -49,20 +49,12 @@ def compute_all_predictions():
                 
                 if existing:
                     skipped_count += 1
-                    if idx % 100 == 0:
-                        print(f"[{idx}/{total}] Skipped {player.short_name} (already exists)")
+                    print(f"[{idx}/{total}] SKIP: {player.short_name}")
                     continue
                 
-                print(f"\n[{idx}/{total}] Processing: {player.short_name} ({player.overall} OVR, Age {player.age_fifa})")
-                
-                # Convert player to features
-                print(f"  → Converting player to features...")
+                # Convert player to features and run predictions
                 features = player_to_features(player)
-                
-                # Run predictions
-                print(f"  → Running 9-year predictions...")
                 stats_library = predictNineYears(features, player)
-                print(f"  → Predictions complete!")
                 
                 # Create prediction record
                 prediction = PlayerPrediction(
@@ -75,27 +67,15 @@ def compute_all_predictions():
                     computed_at=datetime.utcnow().isoformat()
                 )
                 
-                print(f"  → Saving to database...")
                 session.add(prediction)
                 session.commit()
                 
                 success_count += 1
-                print(f"  ✓ SUCCESS - Year 1: {prediction.year1_overall} OVR, €{prediction.year1_value:,}")
-                
-                # Progress update every 10 players
-                if idx % 10 == 0:
-                    elapsed = time.time() - start_time
-                    rate = idx / elapsed
-                    eta = (total - idx) / rate if rate > 0 else 0
-                    print(f"\n{'='*60}")
-                    print(f"PROGRESS: {idx}/{total} ({idx/total*100:.1f}%)")
-                    print(f"Success: {success_count} | Skipped: {skipped_count} | Errors: {error_count}")
-                    print(f"Rate: {rate:.1f} players/sec | ETA: {eta/60:.1f} min")
-                    print(f"{'='*60}")
+                print(f"[{idx}/{total}] DONE: {player.short_name}")
                 
             except Exception as e:
                 error_count += 1
-                print(f"\n  ✗ ERROR for {player.short_name}: {str(e)}")
+                print(f"[{idx}/{total}] ERROR: {player.short_name} - {str(e)}")
                 session.rollback()
                 continue
         
