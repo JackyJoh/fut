@@ -38,7 +38,7 @@ export default function Splash({ onComplete }: SplashProps) {
         {/* Title */}
         <div className="text-center backdrop-blur-md bg-black/20 px-12 py-8 rounded-2xl border border-white/10">
           <h1 className="text-5xl font-bold text-white mb-3 tracking-wide">
-            FUT PREDICT
+            FUTPREDICT
           </h1>
           <p className="text-emerald-400 text-lg tracking-widest">
             Uncover Football's Next Superstars

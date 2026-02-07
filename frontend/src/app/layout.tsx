@@ -1,22 +1,17 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Michroma } from "next/font/google";
+import { Inter, IBM_Plex_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const ibmPlexMono = IBM_Plex_Mono({
+  variable: "--font-heading",
   subsets: ["latin"],
-});
-
-const michroma = Michroma({
-  variable: "--font-michroma",
-  subsets: ["latin"],
-  weight: "400",
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -34,15 +29,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Michroma&display=swap" rel="stylesheet" />
-      </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${michroma.variable} antialiased`}
+        className={`${inter.variable} ${ibmPlexMono.variable} antialiased`}
         suppressHydrationWarning
-        style={{ fontFamily: "'Michroma', sans-serif" }}
       >
         {children}
         <Analytics />

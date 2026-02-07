@@ -107,14 +107,14 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
   const [predictedStatsLib, setPredictedStatsLib] = useState<any[] | null>(null);
   const [nationalityText, setNationalityText] = useState<string | null>(null);
   const [selectedPredictionSeason, setSelectedPredictionSeason] = useState("25/26");
-  
+
   // Get current season's data based on selected tab (0-8 index for years 1-9)
   const getCurrentSeasonData = () => {
     if (!predictedStatsLib || !Array.isArray(predictedStatsLib)) return null;
     const seasonIndex = SEASONS.indexOf(selectedPredictionSeason);
     return predictedStatsLib[seasonIndex] || null;
   };
-  
+
   const currentSeasonData = getCurrentSeasonData();
   const [currentValue, setCurrentValue] = useState<number | null>(null);
 
@@ -123,7 +123,7 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
    */
   const getMarketValueData = () => {
     if (!predictedStatsLib || !Array.isArray(predictedStatsLib)) return [];
-    
+
     return predictedStatsLib.map((prediction, index) => ({
       season: SEASONS[index],
       value: prediction.predictValue || 0
@@ -135,7 +135,7 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
    */
   const getRatingData = () => {
     if (!predictedStatsLib || !Array.isArray(predictedStatsLib)) return [];
-    
+
     return predictedStatsLib.map((prediction, index) => ({
       season: SEASONS[index],
       rating: prediction.predictOverall || 0,
@@ -148,7 +148,7 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
    */
   const getGoalsAssistsData = () => {
     if (!predictedStatsLib || !Array.isArray(predictedStatsLib)) return [];
-    
+
     return predictedStatsLib.map((prediction, index) => ({
       season: SEASONS[index],
       goals: Math.round(prediction.predictedGoals || 0),
@@ -179,13 +179,13 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
       const response = await fetch(
         `${apiUrl}/searchPlayers?name=${encodeURIComponent(query)}`
       );
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      
+
       if (data && data.length > 0) {
         // Map backend data to PlayerSuggestion format (limit to 5 results)
         const players: PlayerSuggestion[] = data.slice(0, 5).map((playerData: any) => ({
@@ -227,52 +227,52 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
     }
 
     setIsLoadingImage(true);
-    
+
     // Temporary variables to batch state updates
     let tempPlayerImage = "";
     let tempTeamBadge: string | null = null;
-    
+
     try {
       // Fetch player data from TheSportsDB
       const playerResponse = await fetch(
         `https://www.thesportsdb.com/api/v1/json/123/searchplayers.php?p=${encodeURIComponent(playerName)}`
       );
-      
+
       if (!playerResponse.ok) {
         throw new Error(`HTTP error! status: ${playerResponse.status}`);
       }
-      
+
       const playerData = await playerResponse.json();
-      
+
       if (playerData.player && playerData.player.length > 0) {
         // Filter for soccer players only
         const soccerPlayers = playerData.player.filter(
           (p: any) => p.strSport?.toLowerCase() === 'soccer'
         );
-        
+
         if (soccerPlayers.length > 0) {
           const player = soccerPlayers[0];
           tempPlayerImage = player.strThumb || player.strCutout || "";
-          
+
           // Fetch team badge if team name is available
           if (player.strTeam) {
             try {
               const teamResponse = await fetch(
                 `https://www.thesportsdb.com/api/v1/json/123/searchteams.php?t=${encodeURIComponent(player.strTeam)}`
               );
-              
+
               if (!teamResponse.ok) {
                 throw new Error(`HTTP error! status: ${teamResponse.status}`);
               }
-              
+
               const teamData = await teamResponse.json();
-              
+
               if (teamData.teams && teamData.teams.length > 0) {
                 // Filter for soccer teams only
                 const soccerTeams = teamData.teams.filter(
                   (t: any) => t.strSport?.toLowerCase() === 'soccer'
                 );
-                
+
                 if (soccerTeams.length > 0) {
                   tempTeamBadge = soccerTeams[0].strBadge || null;
                 }
@@ -286,15 +286,15 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
     } catch (error) {
       console.error("Error fetching player image:", error);
     }
-    
+
     // Batch update all image-related state
     setPlayerImage(tempPlayerImage);
     setTeamBadge(tempTeamBadge);
-    
+
     if (nationality) {
       setNationalityText(nationality);
     }
-    
+
     setIsLoadingImage(false);
   };
 
@@ -305,16 +305,16 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const value = e.target.value;
     setPlayerSearch(value);
-    
+
     // Clear existing suggestions immediately
     setSuggestions([]);
     setShowSuggestions(false);
-    
+
     // Clear previous debounce timeout
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
-    
+
     // Debounce search request (300ms delay)
     searchTimeoutRef.current = setTimeout(() => {
       fetchSuggestions(value);
@@ -332,18 +332,18 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
     setDisplayedPlayerName(player.strPlayer);
     setShowSuggestions(false);
     setSuggestions([]);
-    
+
     // Reset all existing player data
     setPlayerImage("");
     setTeamBadge(null);
     setNationalityText(null);
     setPredictedStatsLib(null);
-    
+
     // Load new player data from backend response
     if (player.fullData) {
       const data = player.fullData;
       const playerId = data.id?.toString() || data.playerID?.toString() || null;
-      
+
       // Set basic player information
       setSelectedPlayerId(playerId);
       setAge(data.age_fifa || null);
@@ -351,14 +351,14 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
       setPosition(data.player_positions || null);
       setClub(data.club_name || null);
       setCurrentValue(data.value_eur || null);
-      
+
       // Fetch player images asynchronously (non-blocking)
       fetchPlayerImage(
         player.strPlayer,
         data.club_name,
         data.nationality_name || null
       );
-      
+
       // Fetch player predictions if ID is available
       if (playerId) {
         try {
@@ -366,11 +366,11 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
           const response = await fetch(
             `${apiUrl}/predictPlayer/${playerId}`
           );
-          
+
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
-          
+
           const predictionData = await response.json();
           setPredictedStatsLib(predictionData.statsLibrary);
         } catch (error) {
@@ -396,17 +396,17 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
   return (
     <>
       {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-3 sm:px-4 md:px-6 py-2 sm:py-3 border-b border-white/25 shrink-0 bg-[#0a0f0a]/90">
+      <header className="relative z-10 flex items-center justify-between px-3 sm:px-4 md:px-6 py-2 sm:py-3 border-b border-white/10 shrink-0 bg-[#1a1f3a]/90">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center">
             <img src="/futPredict-removebg2.png" className="w-full h-full object-cover" alt="Fut Predict Logo" />
           </div>
-          <span className="text-white font-semibold text-base sm:text-lg">Fut Predict</span>
+          <span className="text-white font-heading font-semibold text-base sm:text-lg tracking-tight">FutPredict</span>
         </div>
         {onBackToHome && (
           <button
             onClick={onBackToHome}
-            className="text-gray-400 hover:text-white text-sm transition-colors"
+            className="text-slate-400 hover:text-cyan-400 text-sm transition-colors font-medium"
           >
             ← Back
           </button>
@@ -417,8 +417,8 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
       <main className="relative z-10 px-3 sm:px-4 md:px-6 py-3 sm:py-4 w-full md:w-[95vw] mx-auto flex-1 flex flex-col min-h-0 opacity-100 overflow-x-hidden">
         {/* Title Section */}
         <div className="mb-3 sm:mb-4 shrink-0">
-          <h1 className="text-xl sm:text-2xl font-bold text-white mb-1">FIFA Rating Predictor</h1>
-          <p className="text-gray-400 text-xs sm:text-sm">Uncover Football&apos;s Next Superstars</p>
+          <h1 className="text-xl sm:text-2xl font-heading font-bold text-white mb-1 tracking-tight">FIFA Rating Predictor</h1>
+          <p className="text-slate-400 text-xs sm:text-sm">Uncover Football&apos;s Next Superstars</p>
         </div>
 
         {/* Main Grid */}
@@ -437,57 +437,57 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
                   onFocus={() => {
                     if (suggestions.length > 0) setShowSuggestions(true);
                   }}
-                  className="w-full backdrop-blur-md bg-black/20 border border-white/10 rounded-lg py-1.5 sm:py-2 pl-2.5 sm:pl-3 pr-2.5 sm:pr-3 text-white text-xs sm:text-sm placeholder-gray-500 focus:outline-none focus:border-emerald-500/50"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg py-1.5 sm:py-2 pl-2.5 sm:pl-3 pr-2.5 sm:pr-3 text-white text-xs sm:text-sm placeholder-slate-500 focus:outline-none focus:border-cyan-400/50 focus:shadow-[0_0_12px_rgba(34,211,238,0.15)] transition-all duration-200"
                 />
-                
+
                 {/* Suggestions Dropdown */}
                 {showSuggestions && suggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 backdrop-blur-md bg-black/20 border border-white/10 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-[#1a1f3a] border border-white/10 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
                     {suggestions.map((player) => (
                       <div
                         key={player.idPlayer}
                         onClick={() => handleSelectPlayer(player)}
-                        className="px-3 py-2 hover:bg-emerald-500/20 cursor-pointer border-b border-white/5 last:border-b-0 transition-colors"
+                        className="suggestion-row px-3 py-2 cursor-pointer border-b border-white/5 last:border-b-0"
                       >
                         <div className="text-white text-sm font-semibold">{player.strPlayer}</div>
-                        <div className="text-gray-400 text-xs">{player.strTeam} • {player.strNationality}</div>
+                        <div className="text-slate-400 text-xs">{player.strTeam} • {player.strNationality}</div>
                       </div>
                     ))}
                   </div>
                 )}
-                
+
                 {isLoadingSuggestions && (
-                  <div className="absolute top-full left-0 right-0 mt-1 backdrop-blur-md bg-black/20 border border-white/10 rounded-lg shadow-lg z-50 px-3 py-2">
-                    <div className="text-gray-400 text-sm">Searching...</div>
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-[#1a1f3a] border border-white/10 rounded-lg shadow-lg z-50 px-3 py-2">
+                    <div className="text-slate-400 text-sm">Searching...</div>
                   </div>
                 )}
               </div>
             </div>
 
             {/* Current Player Info Card - New Layout */}
-            <div className="backdrop-blur-md bg-black/20 border border-white/10 rounded-xl p-2.5 sm:p-3 md:p-4 flex flex-col shrink-0 md:flex-1">
+            <div className="card-glow bg-white/5 border border-white/10 rounded-lg p-2.5 sm:p-3 md:p-4 flex flex-col shrink-0 md:flex-1">
               {/* Top: Name and Info - 1/3 */}
               <div className="flex flex-col gap-1.5 sm:gap-2">
-                <div className="text-white font-bold text-base sm:text-lg md:text-xl lg:text-2xl leading-tight truncate">{displayedPlayerName || '--'}</div>
-                <div className="flex flex-row justify-around text-base text-white/90 font-mono w-full mt-0.5 sm:mt-1">
+                <div className="text-white font-heading font-bold text-base sm:text-lg md:text-xl lg:text-2xl leading-tight truncate">{displayedPlayerName || '--'}</div>
+                <div className="flex flex-row justify-around text-base text-white/90 font-tnum w-full mt-0.5 sm:mt-1" style={{ fontFeatureSettings: "'tnum'" }}>
                   {/* OVR */}
                   <div className="flex flex-col items-center px-1">
-                    <span className="font-semibold text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-gray-400">OVR</span>
+                    <span className="font-heading font-semibold text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-slate-400">OVR</span>
                     <span className="block text-center text-base sm:text-lg md:text-xl font-bold text-white">{currentOverall !== null ? currentOverall : '--'}</span>
                   </div>
                   {/* Age */}
                   <div className="flex flex-col items-center px-1">
-                    <span className="font-semibold text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-gray-400">Age</span>
+                    <span className="font-heading font-semibold text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-slate-400">Age</span>
                     <span className="block text-center text-base sm:text-lg md:text-xl font-bold text-white">{age !== null ? age : '--'}</span>
                   </div>
                   {/* Position */}
                   <div className="flex flex-col items-center px-1">
-                    <span className="font-semibold text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-gray-400">Pos</span>
+                    <span className="font-heading font-semibold text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-slate-400">Pos</span>
                     <span className="block text-center text-base sm:text-lg md:text-xl font-bold text-white">{position || '--'}</span>
                   </div>
                   {/* Value */}
                   <div className="flex flex-col items-center px-1">
-                    <span className="font-semibold text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-gray-400">Value</span>
+                    <span className="font-heading font-semibold text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-slate-400">Value</span>
                     <span className="block text-center text-base sm:text-lg md:text-xl font-bold text-white">{currentValue !== null ? `$${((currentValue * 1.18) / 1000000).toFixed(1)}M` : '--'}</span>
                   </div>
                 </div>
@@ -499,7 +499,7 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
               {/* Images Section - 2/3 */}
               <div className="flex flex-row gap-1 sm:gap-2 items-stretch h-fit mt-1.5 sm:mt-2">
                 {/* Left: Player Image - 3/5 width */}
-                <div className="w-3/5 md:w-3/5 aspect-[3/5] max-h-[160px] sm:max-h-[180px] md:max-h-[320px] lg:max-h-[360px] xl:max-h-[400px] rounded-md sm:rounded-lg flex items-center justify-center border-2 sm:border-3 border-emerald-500/30 overflow-hidden transition-all duration-300 bg-black/10">
+                <div className="w-3/5 md:w-3/5 aspect-[3/5] max-h-[160px] sm:max-h-[180px] md:max-h-[320px] lg:max-h-[360px] xl:max-h-[400px] rounded-md sm:rounded-lg flex items-center justify-center border border-cyan-400/30 overflow-hidden transition-all duration-200 bg-white/5">
                   {isLoadingImage ? (
                     <span className="text-white text-[10px] sm:text-xs">Loading...</span>
                   ) : playerImage ? (
@@ -509,21 +509,21 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
                       className="w-full h-full object-cover object-top lg:object-center"
                     />
                   ) : (
-                    <span className="text-3xl sm:text-4xl">👤</span>
+                    <svg className="w-10 h-10 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
                   )}
                 </div>
                 {/* Right: Club badge (top), Flag (bottom) - 2/5 width */}
                 <div className="w-2/5 flex flex-col items-center justify-around max-h-[160px] sm:max-h-[180px] md:max-h-[320px] lg:max-h-[360px] xl:max-h-[400px] min-h-[120px] sm:min-h-[140px] md:min-h-[140px]">
                   {/* Club Badge */}
-                  <div className="w-[50px] h-[50px] sm:w-[58px] sm:h-[58px] md:w-[85px] md:h-[85px] lg:w-[106px] lg:h-[106px] rounded flex items-center justify-center overflow-hidden transition-all duration-300">
+                  <div className="w-[50px] h-[50px] sm:w-[58px] sm:h-[58px] md:w-[85px] md:h-[85px] lg:w-[106px] lg:h-[106px] rounded flex items-center justify-center overflow-hidden transition-all duration-200">
                     {teamBadge ? (
                       <img src={teamBadge} alt="Club Badge" className="w-full h-full object-contain" />
                     ) : (
-                      <span className="text-[9px] sm:text-[10px] font-semibold text-gray-400">CLUB</span>
+                      <span className="text-[9px] sm:text-[10px] font-heading font-semibold text-slate-400">CLUB</span>
                     )}
                   </div>
                   {/* Nationality Flag */}
-                  <div className="w-[80px] h-[43px] sm:w-[92px] sm:h-[49px] md:w-[113px] md:h-[60px] lg:w-[136px] lg:h-[72px] rounded flex items-center justify-center overflow-hidden transition-all duration-300">
+                  <div className="w-[80px] h-[43px] sm:w-[92px] sm:h-[49px] md:w-[113px] md:h-[60px] lg:w-[136px] lg:h-[72px] rounded flex items-center justify-center overflow-hidden transition-all duration-200">
                     {nationalityText && getNationalityCode(nationalityText) ? (
                       <img
                         src={`https://flagcdn.com/${getNationalityCode(nationalityText)}.svg`}
@@ -531,12 +531,12 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
                         className="w-full h-full object-contain rounded"
                         onError={(e) => {
                           console.error("Flag failed to load");
-                          e.currentTarget.outerHTML = '<span class=\"text-[9px] sm:text-[10px] font-semibold text-gray-400\">NAT</span>';
+                          e.currentTarget.outerHTML = '<span class="text-[9px] sm:text-[10px] font-semibold text-slate-400">NAT</span>';
                         }}
                         onLoad={() => console.log("Flag loaded successfully")}
                       />
                     ) : (
-                      <span className="text-[9px] sm:text-[10px] font-semibold text-gray-400">NAT</span>
+                      <span className="text-[9px] sm:text-[10px] font-heading font-semibold text-slate-400">NAT</span>
                     )}
                   </div>
                 </div>
@@ -555,13 +555,12 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
                     key={season}
                     onClick={() => setSelectedPredictionSeason(season)}
                     className={
-                      `h-[32px] sm:h-[36px] lg:h-[37.14px] px-1 sm:px-2 lg:px-0 rounded-md lg:rounded-lg backdrop-blur-md text-[10px] sm:text-xs font-bold transition-all duration-200 flex items-center justify-center lg:flex-1
+                      `h-[32px] sm:h-[36px] lg:h-[37.14px] px-1 sm:px-2 lg:px-0 rounded-lg font-heading text-[10px] sm:text-xs font-semibold transition-all duration-200 flex items-center justify-center lg:flex-1
                       ${selectedPredictionSeason === season
-                        ? 'border-2 border-emerald-400 bg-emerald-500/90 shadow-md text-white'
-                        : 'border-2 border-emerald-300/60 bg-black/40 hover:bg-emerald-400/30 text-emerald-100 shadow-[0_2px_8px_0_rgba(0,255,180,0.10)]'}
+                        ? 'border border-cyan-400 bg-cyan-500 text-white shadow-[0_0_12px_rgba(34,211,238,0.35)]'
+                        : 'border border-white/10 bg-white/5 hover:bg-white/10 hover:border-cyan-400/30 text-slate-300'}
                       `
                     }
-                    style={{ minWidth: 0, textShadow: selectedPredictionSeason === season ? '0 1px 4px #000' : '0 1px 2px #000' }}
                   >
                     {season}
                   </button>
@@ -569,17 +568,17 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
               </div>
             </div>
             {/* Predicted Rating Card */}
-            <div className="backdrop-blur-md bg-black/20 border border-white/10 rounded-xl p-3 sm:p-4 flex flex-col shrink-0">
-              <div className="grid grid-cols-2 gap-4">
+            <div className="card-glow bg-white/5 border border-white/10 rounded-lg p-3 sm:p-4 flex flex-col shrink-0">
+              <div className="grid grid-cols-2 gap-4" style={{ fontFeatureSettings: "'tnum'" }}>
                 <div className="text-center">
-                  <h3 className="text-gray-400 text-[10px] sm:text-xs mb-1.5 sm:mb-2">Predicted Rating:</h3>
+                  <h3 className="text-slate-400 font-heading text-[10px] sm:text-xs mb-1.5 sm:mb-2">Predicted Rating:</h3>
                   <div className="flex items-center justify-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
-                    <span className="text-3xl sm:text-4xl md:text-5xl font-bold bg-gradient-to-r from-cyan-400 via-emerald-400 to-blue-500 bg-clip-text text-transparent">
+                    <span className="text-3xl sm:text-4xl md:text-5xl font-bold text-cyan-400 font-tnum">
                       {currentSeasonData?.predictOverall ? Number(currentSeasonData.predictOverall.toFixed(0)) : "--"}
                     </span>
-                    <div className={`flex items-center gap-1 ${currentSeasonData?.predictRatingChange && currentSeasonData.predictRatingChange < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                    <div className={`flex items-center gap-1 ${currentSeasonData?.predictRatingChange && currentSeasonData.predictRatingChange < 0 ? 'text-red-400' : 'text-cyan-400'}`}>
                       <span className="text-lg sm:text-xl md:text-2xl">{currentSeasonData?.predictRatingChange && currentSeasonData.predictRatingChange < 0 ? '↓' : '↑'}</span>
-                      <span className="text-xs sm:text-sm md:text-base font-bold">
+                      <span className="text-xs sm:text-sm md:text-base font-bold font-tnum">
                         {currentSeasonData?.predictRatingChange ?
                           (currentSeasonData.predictRatingChange >= 0 ? '+' : '') + (currentSeasonData.predictRatingChange)
                           : "--"}
@@ -588,8 +587,8 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
                   </div>
                 </div>
                 <div className="text-center">
-                  <h3 className="text-gray-400 text-[10px] sm:text-xs mb-1.5 sm:mb-2">Predicted Value:</h3>
-                  <span className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-green-400 to-green-500 bg-clip-text text-transparent">
+                  <h3 className="text-slate-400 font-heading text-[10px] sm:text-xs mb-1.5 sm:mb-2">Predicted Value:</h3>
+                  <span className="text-xl sm:text-2xl md:text-3xl font-bold text-cyan-400 font-tnum">
                     {currentSeasonData?.predictValue ? (
                       `$${((currentSeasonData.predictValue * 1.18) / 1000000).toFixed(1)}M`
                     ) : (
@@ -601,30 +600,32 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
             </div>
 
             {/* Predicted Next Season Stats */}
-            <div className="backdrop-blur-md bg-black/20 border border-white/10 rounded-xl p-3 sm:p-4 md:p-4 lg:p-3 xl:p-4 flex-1 flex flex-col shrink-0 md:min-h-0 relative overflow-visible">
+            <div className="card-glow bg-white/5 border border-white/10 rounded-lg p-3 sm:p-4 md:p-4 lg:p-3 xl:p-4 flex-1 flex flex-col shrink-0 md:min-h-0 relative overflow-visible">
               {/* Header Row for Predictions and Columns */}
               <div className="flex flex-col w-full mb-1 sm:mb-1 md:mb-1 lg:mb-1 xl:mb-1">
-                <h3 className="text-gray-400 text-[10px] sm:text-xs mb-1.5 sm:mb-2" style={{letterSpacing: '1px'}}>PREDICTIONS</h3>
+                <h3 className="text-slate-400 font-heading text-[10px] sm:text-xs mb-1.5 sm:mb-2" style={{letterSpacing: '1px'}}>PREDICTIONS</h3>
                 <div className="hidden md:flex flex-row w-full items-center justify-between gap-4 min-h-[56px] sm:min-h-[64px] md:min-h-[72px] lg:min-h-[80px] xl:min-h-[90px]">
                   <div className="flex-1 flex items-center justify-center">
-                    <span className="text-gray-200 text-sm sm:text-base md:text-base lg:text-lg xl:text-xl font-bold tracking-wide text-center">FIFA Attributes</span>
+                    <span className="text-slate-200 text-sm sm:text-base md:text-base lg:text-lg xl:text-xl font-heading font-semibold tracking-wide text-center">FIFA Attributes</span>
                   </div>
                   <div className="flex-1 flex items-center justify-center">
-                    <span className="text-gray-200 text-sm sm:text-base md:text-base lg:text-lg xl:text-xl font-bold tracking-wide text-center px-2">Season Performance</span>
+                    <span className="text-slate-200 text-sm sm:text-base md:text-base lg:text-lg xl:text-xl font-heading font-semibold tracking-wide text-center px-2">Season Performance</span>
                   </div>
                 </div>
               </div>
               {/* Two Column Layout */}
               <div className="flex-1 flex flex-col md:flex-row gap-4 sm:gap-5 md:gap-3 lg:gap-4 xl:gap-4 min-h-0">
                 {/* Left Column - FIFA Attributes and Radar Map */}
-                <div className="flex-1 flex flex-col items-center justify-center min-h-0">
+                <div className="flex-1 flex flex-col items-center justify-center min-h-0 relative">
+                  {/* Ambient glow behind radar */}
+                  <div className="ambient-glow top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" style={{ width: '300px', height: '300px' }} />
                   {/* FIFA Attributes Header for small screens */}
                   <div className="flex md:hidden items-center justify-center mb-4 py-2">
-                    <span className="text-gray-200 text-sm sm:text-base font-bold tracking-wide text-center">FIFA Attributes</span>
+                    <span className="text-slate-200 text-sm sm:text-base font-heading font-semibold tracking-wide text-center">FIFA Attributes</span>
                   </div>
                   {/* Radar Map */}
-                  <div className="relative w-40 h-40 xs:w-44 xs:h-44 sm:w-48 sm:h-48 md:w-48 md:h-48 lg:w-48 lg:h-48 xl:w-56 xl:h-56 2xl:w-64 2xl:h-64 mt-4 sm:mt-2 md:mt-1 lg:mb-8 xl:mb-10">
-                    {/* Background rings with gradient */}
+                  <div className="relative z-[1] w-40 h-40 xs:w-44 xs:h-44 sm:w-48 sm:h-48 md:w-48 md:h-48 lg:w-48 lg:h-48 xl:w-56 xl:h-56 2xl:w-64 2xl:h-64 mt-4 sm:mt-2 md:mt-1 lg:mb-8 xl:mb-10">
+                    {/* Background rings */}
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="w-full h-full border border-white/5 rounded-full" />
                     </div>
@@ -658,13 +659,13 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
                       <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100">
                         <defs>
                           <linearGradient id="radarGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stopColor="rgba(16, 185, 129, 0.3)" />
-                            <stop offset="50%" stopColor="rgba(16, 185, 129, 0.2)" />
-                            <stop offset="100%" stopColor="rgba(16, 185, 129, 0.1)" />
+                            <stop offset="0%" stopColor="rgba(34, 211, 238, 0.3)" />
+                            <stop offset="50%" stopColor="rgba(34, 211, 238, 0.2)" />
+                            <stop offset="100%" stopColor="rgba(34, 211, 238, 0.1)" />
                           </linearGradient>
                           <filter id="glow">
                             <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
-                            <feMerge> 
+                            <feMerge>
                               <feMergeNode in="coloredBlur"/>
                               <feMergeNode in="SourceGraphic"/>
                             </feMerge>
@@ -701,7 +702,7 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
                               <polygon
                                 points={points}
                                 fill="none"
-                                stroke="rgba(16, 185, 129, 0.9)"
+                                stroke="rgba(34, 211, 238, 0.9)"
                                 strokeWidth="2"
                                 filter="url(#glow)"
                               />
@@ -710,7 +711,7 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
                                 const r = normStats[i] * radius;
                                 const x = centerX + r * Math.cos(rad);
                                 const y = centerY + r * Math.sin(rad);
-                                return <circle key={i} cx={x} cy={y} r="2" fill="rgba(16, 185, 129, 1)" />;
+                                return <circle key={i} cx={x} cy={y} r="2" fill="rgba(34, 211, 238, 1)" />;
                               })}
                             </>
                           );
@@ -719,31 +720,31 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
                     )}
                     {/* Stat Labels with values - responsive positioning */}
                     <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-6 sm:-translate-y-7 md:-translate-y-6 lg:-translate-y-6 xl:-translate-y-7 text-center">
-                      <div className="text-emerald-400 text-[9px] sm:text-[10px] md:text-[10px] lg:text-[10px] xl:text-xs font-bold tracking-wider">PAC</div>
-                      <div className="text-white text-xs sm:text-sm md:text-sm lg:text-sm font-semibold">{currentSeasonData?.predictPace ? Math.ceil(currentSeasonData.predictPace) : "--"}</div>
+                      <div className="text-cyan-400 text-[9px] sm:text-[10px] md:text-[10px] lg:text-[10px] xl:text-xs font-heading font-semibold tracking-wider">PAC</div>
+                      <div className="text-white text-xs sm:text-sm md:text-sm lg:text-sm font-semibold font-tnum">{currentSeasonData?.predictPace ? Math.ceil(currentSeasonData.predictPace) : "--"}</div>
                     </div>
                     <div className="absolute top-[12%] right-0 translate-x-4 sm:translate-x-5 md:translate-x-5 lg:translate-x-5 xl:translate-x-6 text-center">
-                      <div className="text-blue-400 text-[9px] sm:text-[10px] md:text-[10px] lg:text-[10px] xl:text-xs font-bold tracking-wider">SHO</div>
-                      <div className="text-white text-xs sm:text-sm md:text-sm lg:text-sm font-semibold">{currentSeasonData?.predictShooting ? Math.ceil(currentSeasonData.predictShooting) : "--"}</div>
+                      <div className="text-cyan-400 text-[9px] sm:text-[10px] md:text-[10px] lg:text-[10px] xl:text-xs font-heading font-semibold tracking-wider">SHO</div>
+                      <div className="text-white text-xs sm:text-sm md:text-sm lg:text-sm font-semibold font-tnum">{currentSeasonData?.predictShooting ? Math.ceil(currentSeasonData.predictShooting) : "--"}</div>
                     </div>
                     <div className="absolute bottom-[12%] right-0 translate-x-4 sm:translate-x-5 md:translate-x-5 lg:translate-x-5 xl:translate-x-6 text-center">
-                      <div className="text-yellow-400 text-[9px] sm:text-[10px] md:text-[10px] lg:text-[10px] xl:text-xs font-bold tracking-wider">PAS</div>
-                      <div className="text-white text-xs sm:text-sm md:text-sm lg:text-sm font-semibold">{currentSeasonData?.predictPassing ? Math.ceil(currentSeasonData.predictPassing) : "--"}</div>
+                      <div className="text-cyan-400 text-[9px] sm:text-[10px] md:text-[10px] lg:text-[10px] xl:text-xs font-heading font-semibold tracking-wider">PAS</div>
+                      <div className="text-white text-xs sm:text-sm md:text-sm lg:text-sm font-semibold font-tnum">{currentSeasonData?.predictPassing ? Math.ceil(currentSeasonData.predictPassing) : "--"}</div>
                     </div>
                     <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-6 sm:translate-y-7 md:translate-y-6 lg:translate-y-6 xl:translate-y-7 text-center">
-                      <div className="text-purple-400 text-[9px] sm:text-[10px] md:text-[10px] lg:text-[10px] xl:text-xs font-bold tracking-wider">DRI</div>
-                      <div className="text-white text-xs sm:text-sm md:text-sm lg:text-sm font-semibold">{currentSeasonData?.predictDribbling ? Math.ceil(currentSeasonData.predictDribbling) : "--"}</div>
+                      <div className="text-cyan-400 text-[9px] sm:text-[10px] md:text-[10px] lg:text-[10px] xl:text-xs font-heading font-semibold tracking-wider">DRI</div>
+                      <div className="text-white text-xs sm:text-sm md:text-sm lg:text-sm font-semibold font-tnum">{currentSeasonData?.predictDribbling ? Math.ceil(currentSeasonData.predictDribbling) : "--"}</div>
                     </div>
                     <div className="absolute bottom-[12%] left-0 -translate-x-4 sm:-translate-x-5 md:-translate-x-5 lg:-translate-x-5 xl:-translate-x-6 text-center">
-                      <div className="text-red-400 text-[9px] sm:text-[10px] md:text-[10px] lg:text-[10px] xl:text-xs font-bold tracking-wider">DEF</div>
-                      <div className="text-white text-xs sm:text-sm md:text-sm lg:text-sm font-semibold">{currentSeasonData?.predictDefending ? Math.ceil(currentSeasonData.predictDefending) : "--"}</div>
+                      <div className="text-cyan-400 text-[9px] sm:text-[10px] md:text-[10px] lg:text-[10px] xl:text-xs font-heading font-semibold tracking-wider">DEF</div>
+                      <div className="text-white text-xs sm:text-sm md:text-sm lg:text-sm font-semibold font-tnum">{currentSeasonData?.predictDefending ? Math.ceil(currentSeasonData.predictDefending) : "--"}</div>
                     </div>
                     <div className="absolute top-[12%] left-0 -translate-x-4 sm:-translate-x-5 md:-translate-x-5 lg:-translate-x-5 xl:-translate-x-6 text-center">
-                      <div className="text-orange-400 text-[9px] sm:text-[10px] md:text-[10px] lg:text-[10px] xl:text-xs font-bold tracking-wider">PHY</div>
-                      <div className="text-white text-xs sm:text-sm md:text-sm lg:text-sm font-semibold">{currentSeasonData?.predictPhysic ? Math.ceil(currentSeasonData.predictPhysic) : "--"}</div>
+                      <div className="text-cyan-400 text-[9px] sm:text-[10px] md:text-[10px] lg:text-[10px] xl:text-xs font-heading font-semibold tracking-wider">PHY</div>
+                      <div className="text-white text-xs sm:text-sm md:text-sm lg:text-sm font-semibold font-tnum">{currentSeasonData?.predictPhysic ? Math.ceil(currentSeasonData.predictPhysic) : "--"}</div>
                     </div>
                     {/* Center circle with glow */}
-                    <div className="absolute inset-[40%] bg-gradient-to-br from-emerald-500/30 to-emerald-600/20 rounded-full border border-emerald-400/50 shadow-lg shadow-emerald-500/20" />
+                    <div className="absolute inset-[40%] bg-cyan-500/20 rounded-full border border-cyan-400/50 shadow-lg shadow-cyan-500/20" />
                   </div>
                 </div>
 
@@ -751,35 +752,35 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
                 <div className="flex-1 flex flex-col justify-center items-center min-h-0">
                   {/* Season Performance Header for small screens */}
                   <div className="flex md:hidden items-center justify-center mb-2 py-2 mt-6 pt-4">
-                    <span className="text-gray-200 text-sm sm:text-base font-bold tracking-wide text-center px-2">Season Performance</span>
+                    <span className="text-slate-200 text-sm sm:text-base font-heading font-semibold tracking-wide text-center px-2">Season Performance</span>
                   </div>
-                  <div className="grid grid-cols-2 grid-rows-2 gap-1 sm:gap-2 w-full min-h-[100px] sm:min-h-[110px] md:min-h-[120px] lg:min-h-[130px] xl:min-h-[140px]">
+                  <div className="grid grid-cols-2 grid-rows-2 gap-1 sm:gap-2 w-full min-h-[100px] sm:min-h-[110px] md:min-h-[120px] lg:min-h-[130px] xl:min-h-[140px]" style={{ fontFeatureSettings: "'tnum'" }}>
                     {/* Goals */}
                     <div className="flex flex-col items-center p-1 sm:p-1.5 md:p-1.5 lg:p-1.5 xl:p-2 rounded-lg">
-                      <span className="text-gray-400 text-[10px] sm:text-xs md:text-xs lg:text-xs xl:text-sm uppercase tracking-wider mb-0.5">Goals</span>
-                      <span className="text-blue-400 text-xl sm:text-2xl md:text-2xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold">
+                      <span className="text-slate-400 font-heading text-[10px] sm:text-xs md:text-xs lg:text-xs xl:text-sm uppercase tracking-wider mb-0.5">Goals</span>
+                      <span className="text-cyan-400 text-xl sm:text-2xl md:text-2xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold font-tnum">
                         {currentSeasonData?.predictedGoals ? Math.ceil(currentSeasonData.predictedGoals) : "--"}
                       </span>
                     </div>
                     {/* Assists */}
                     <div className="flex flex-col items-center p-1 sm:p-1.5 md:p-1.5 lg:p-1.5 xl:p-2 rounded-lg">
-                      <span className="text-gray-400 text-[10px] sm:text-xs md:text-xs lg:text-xs xl:text-sm uppercase tracking-wider mb-0.5">Assists</span>
-                      <span className="text-yellow-400 text-xl sm:text-2xl md:text-2xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold">
+                      <span className="text-slate-400 font-heading text-[10px] sm:text-xs md:text-xs lg:text-xs xl:text-sm uppercase tracking-wider mb-0.5">Assists</span>
+                      <span className="text-amber-400 text-xl sm:text-2xl md:text-2xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold font-tnum">
                         {currentSeasonData?.predictedAssists ? Math.ceil(currentSeasonData.predictedAssists) : "--"}
                       </span>
                     </div>
                     {/* Defensive Contributions */}
                     <div className="flex flex-col items-center p-1 sm:p-1.5 md:p-1.5 lg:p-1.5 xl:p-2 pb-0 rounded-lg">
-                      <span className="text-gray-400 text-[10px] sm:text-xs md:text-xs lg:text-xs xl:text-sm uppercase tracking-wider mb-0.5 text-center">Def Contrib.</span>
-                      <span className="text-red-400 text-xl sm:text-2xl md:text-2xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold">
+                      <span className="text-slate-400 font-heading text-[10px] sm:text-xs md:text-xs lg:text-xs xl:text-sm uppercase tracking-wider mb-0.5 text-center">Def Contrib.</span>
+                      <span className="text-rose-400 text-xl sm:text-2xl md:text-2xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold font-tnum">
                         {currentSeasonData?.predictedInterceptions && currentSeasonData?.predictedTackles ?
                           Math.ceil(currentSeasonData.predictedInterceptions + currentSeasonData.predictedTackles) : "--"}
                       </span>
                     </div>
                     {/* Key Passes */}
                     <div className="flex flex-col items-center p-1 sm:p-1.5 md:p-1.5 lg:p-1.5 xl:p-2 pb-0 rounded-lg">
-                      <span className="text-gray-400 text-[10px] sm:text-xs md:text-xs lg:text-xs xl:text-sm uppercase tracking-wider mb-0.5">Key Passes</span>
-                      <span className="text-purple-400 text-xl sm:text-2xl md:text-2xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold">
+                      <span className="text-slate-400 font-heading text-[10px] sm:text-xs md:text-xs lg:text-xs xl:text-sm uppercase tracking-wider mb-0.5">Key Passes</span>
+                      <span className="text-violet-400 text-xl sm:text-2xl md:text-2xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold font-tnum">
                         {currentSeasonData?.predictedKeyPasses ? Math.ceil(currentSeasonData.predictedKeyPasses) : "--"}
                       </span>
                     </div>
@@ -791,11 +792,11 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
         </div>
 
         {/* Overall Progression Section */}
-        <div className="backdrop-blur-md bg-black/20 border border-white/10 rounded-xl p-3 sm:p-4 mt-4" style={{ minHeight: '500px' }}>
-          <h3 className="text-gray-400 text-xs sm:text-sm mb-1.5 sm:mb-2">Overall Progression</h3>
+        <div className="card-glow bg-white/5 border border-white/10 rounded-lg p-3 sm:p-4 mt-4" style={{ minHeight: '500px' }}>
+          <h3 className="text-slate-400 font-heading text-xs sm:text-sm mb-1.5 sm:mb-2">Overall Progression</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:h-[400px]">
             <div className="flex flex-col h-[250px] md:h-auto">
-              <h4 className="text-white text-xs mb-2">Market Value</h4>
+              <h4 className="text-white font-heading text-xs mb-2">Market Value</h4>
               <div className="flex-1 outline-none" tabIndex={-1}>
                 <ResponsiveContainer
                   width="100%"
@@ -806,32 +807,32 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
                     data={marketValueData}
                     style={{ outline: 'none', userSelect: 'none', pointerEvents: 'auto' }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#888888" />
-                    <XAxis dataKey="season" stroke="#fff" fontSize={10} interval={0} tick={{ fill: '#fff' }} />
-                    <YAxis 
-                      stroke="#fff" 
-                      fontSize={10} 
-                      tick={{ fill: '#fff' }}
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                    <XAxis dataKey="season" stroke="#94a3b8" fontSize={10} interval={0} tick={{ fill: '#94a3b8' }} />
+                    <YAxis
+                      stroke="#94a3b8"
+                      fontSize={10}
+                      tick={{ fill: '#94a3b8' }}
                       tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
                     />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: 'rgba(0,0,0,0.5)',
-                        border: '1px solid rgba(255,255,255,0.05)',
-                        borderRadius: '6px',
-                        color: 'rgba(255,255,255,0.7)',
+                        backgroundColor: '#1a1f3a',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '8px',
+                        color: '#94a3b8',
                         fontSize: '11px',
                         fontWeight: 400
                       }}
                       formatter={(value: any) => [`$${((value || 0) / 1000000).toFixed(1)}M`, 'Market Value']}
                     />
-                    <Line type="monotone" dataKey="value" stroke="#10B981" strokeWidth={2} activeDot={false} />
+                    <Line type="monotone" dataKey="value" stroke="#22d3ee" strokeWidth={2} activeDot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
             </div>
             <div className="flex flex-col h-[250px] md:h-auto">
-              <h4 className="text-white text-xs mb-2">Rating/Potential</h4>
+              <h4 className="text-white font-heading text-xs mb-2">Rating/Potential</h4>
               <div className="flex-1 outline-none" tabIndex={-1}>
                 <ResponsiveContainer
                   width="100%"
@@ -842,27 +843,27 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
                     data={ratingData}
                     style={{ outline: 'none', userSelect: 'none', pointerEvents: 'auto' }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#888888" />
-                    <XAxis dataKey="season" stroke="#fff" fontSize={10} interval={0} tick={{ fill: '#fff' }} />
-                    <YAxis stroke="#fff" fontSize={10} tick={{ fill: '#fff' }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                    <XAxis dataKey="season" stroke="#94a3b8" fontSize={10} interval={0} tick={{ fill: '#94a3b8' }} />
+                    <YAxis stroke="#94a3b8" fontSize={10} tick={{ fill: '#94a3b8' }} />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: 'rgba(0,0,0,0.5)',
-                        border: '1px solid rgba(255,255,255,0.05)',
-                        borderRadius: '6px',
-                        color: 'rgba(255,255,255,0.7)',
+                        backgroundColor: '#1a1f3a',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '8px',
+                        color: '#94a3b8',
                         fontSize: '11px',
                         fontWeight: 400
                       }}
                     />
-                    <Line type="monotone" dataKey="rating" stroke="#3B82F6" strokeWidth={2} activeDot={false} />
-                    <Line type="monotone" dataKey="potential" stroke="#F59E0B" strokeWidth={2} activeDot={false} />
+                    <Line type="monotone" dataKey="rating" stroke="#22d3ee" strokeWidth={2} activeDot={false} />
+                    <Line type="monotone" dataKey="potential" stroke="#f59e0b" strokeWidth={2} strokeDasharray="5 3" activeDot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
             </div>
             <div className="flex flex-col h-[250px] md:h-auto">
-              <h4 className="text-white text-xs mb-2">Goals & Assists</h4>
+              <h4 className="text-white font-heading text-xs mb-2">Goals & Assists</h4>
               <div className="flex-1 outline-none" tabIndex={-1}>
                 <ResponsiveContainer
                   width="100%"
@@ -873,21 +874,21 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
                     data={goalsAssistsData}
                     style={{ outline: 'none', userSelect: 'none', pointerEvents: 'auto' }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#888888" />
-                    <XAxis dataKey="season" stroke="#fff" fontSize={10} interval={0} tick={{ fill: '#fff' }} />
-                    <YAxis stroke="#fff" fontSize={10} tick={{ fill: '#fff' }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                    <XAxis dataKey="season" stroke="#94a3b8" fontSize={10} interval={0} tick={{ fill: '#94a3b8' }} />
+                    <YAxis stroke="#94a3b8" fontSize={10} tick={{ fill: '#94a3b8' }} />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: 'rgba(0,0,0,0.5)',
-                        border: '1px solid rgba(255,255,255,0.05)',
-                        borderRadius: '6px',
-                        color: 'rgba(255,255,255,0.7)',
+                        backgroundColor: '#1a1f3a',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '8px',
+                        color: '#94a3b8',
                         fontSize: '11px',
                         fontWeight: 400
                       }}
                     />
-                    <Line type="monotone" dataKey="goals" stroke="#EF4444" strokeWidth={2} activeDot={false} />
-                    <Line type="monotone" dataKey="assists" stroke="#F59E0B" strokeWidth={2} activeDot={false} />
+                    <Line type="monotone" dataKey="goals" stroke="#22d3ee" strokeWidth={2} activeDot={false} />
+                    <Line type="monotone" dataKey="assists" stroke="#f59e0b" strokeWidth={2} strokeDasharray="5 3" activeDot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -896,7 +897,8 @@ export default function PredictionPage({ onBackToHome }: PredictionPageProps) {
         </div>
 
         {/* Footer */}
-        <div className="mt-3 text-center text-gray-500 text-xs shrink-0">
+        <div className="mt-3 text-center py-4 border-t border-white/10 shrink-0">
+          <p className="text-sm text-slate-400">&copy; 2026 FutPredict. AI-powered football analytics.</p>
         </div>
       </main>
     </>
